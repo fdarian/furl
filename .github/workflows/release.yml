@@ -24,6 +24,7 @@ jobs:
           package-manager-cache: false
       - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
+      - run: bun run --cwd apps/cli build
       - id: changesets
         uses: changesets/action@v1
         with:
