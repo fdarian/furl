@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/config/tsconfig-library",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["ESNext"],
+    "paths": {
+      "#/*": ["./src/*"]
+    },
+    "types": ["bun"]
+  },
+  "include": ["src"]
+}
