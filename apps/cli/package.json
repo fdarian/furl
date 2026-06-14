@@ -1,16 +1,26 @@
 {
   "name": "furl-cli",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "bin": {
-    "furl": "./src/main.ts"
+    "furl": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
+    "build": "bun build src/main.ts --target=bun --outfile dist/cli.js",
+    "build:binaries": "bun run scripts/build-binaries.ts",
+    "prepack": "bun run build",
     "check:tsc": "tsc --noEmit",
     "check:lint": "biome check ."
   },
-  "dependencies": {
+  "devDependencies": {
     "@effect/platform-bun": "4.0.0-beta.83",
     "@furl/core": "workspace:*",
     "@repo/config": "workspace:*",
