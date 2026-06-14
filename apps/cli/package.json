@@ -1,0 +1,18 @@
+{
+  "name": "@furl/cli",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "furl": "./src/main.ts"
+  },
+  "scripts": {
+    "check:tsc": "tsc --noEmit",
+    "check:lint": "biome check ."
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-beta.83",
+    "@furl/core": "workspace:*",
+    "@repo/config": "workspace:*",
+    "effect": "4.0.0-beta.83"
+  }
+}

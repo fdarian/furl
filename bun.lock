@@ -11,6 +11,18 @@
         "typescript": "^5.9.2",
       },
     },
+    "apps/cli": {
+      "name": "@furl/cli",
+      "bin": {
+        "furl": "./src/main.ts",
+      },
+      "dependencies": {
+        "@effect/platform-bun": "4.0.0-beta.83",
+        "@furl/core": "workspace:*",
+        "@repo/config": "workspace:*",
+        "effect": "4.0.0-beta.83",
+      },
+    },
     "packages/config": {
       "name": "@repo/config",
       "dependencies": {
@@ -48,6 +60,8 @@
     "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.83", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.83" }, "peerDependencies": { "effect": "^4.0.0-beta.83" } }, "sha512-Mop8U1Ad1FFyL6C4VWWCCYG3Mh7BHvGsfhYAIfBZffEDRjgUME1Ol8rno2CoHYzJ6qaUOL8D4djtPGkwS68/Qw=="],
 
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.83", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.20.0" }, "peerDependencies": { "effect": "^4.0.0-beta.83" } }, "sha512-+yr/+PJmKTgmJq1QOINSBPgLu7Cjc4CZcotBXnGjyDEizOmimFgTkN2B8PBJAKIKUWYWfobjXqC+58/VhhPKAw=="],
+
+    "@furl/cli": ["@furl/cli@workspace:apps/cli"],
 
     "@furl/core": ["@furl/core@workspace:packages/core"],
 
