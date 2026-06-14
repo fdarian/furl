@@ -1,7 +1,7 @@
 import { type Context, Effect } from 'effect';
 import { type HttpClient, HttpClientRequest } from 'effect/unstable/http';
 
-import { FetchError } from '../errors.ts';
+import { FetchError, ProviderError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 
 import { getOptionalProviderKey } from './provider-key.ts';
@@ -37,6 +37,15 @@ export const fetchWithJina = (
           new FetchError({ url: url, status: undefined, cause: cause }),
       ),
     );
+
+    if (response.status < 200 || response.status >= 300) {
+      return yield* Effect.fail(
+        new ProviderError({
+          provider: 'jina',
+          cause: new Error(`Unexpected status ${response.status}`),
+        }),
+      );
+    }
 
     return yield* response.text.pipe(
       Effect.mapError(

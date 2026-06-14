@@ -39,6 +39,16 @@ export const fetchWithExa = (
           new FetchError({ url: url, status: undefined, cause: cause }),
       ),
     );
+
+    if (response.status < 200 || response.status >= 300) {
+      return yield* Effect.fail(
+        new ProviderError({
+          provider: 'exa',
+          cause: new Error(`Unexpected status ${response.status}`),
+        }),
+      );
+    }
+
     const body = yield* response.json.pipe(
       Effect.mapError(
         (cause) =>

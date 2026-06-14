@@ -115,7 +115,11 @@ const tryDirectMarkdownFetch = (
       markdown: body,
       source: source,
     } satisfies FetchResult);
-  });
+  }).pipe(
+    Effect.catchTag('FetchError', () =>
+      Effect.succeed(Option.none<FetchResult>()),
+    ),
+  );
 
 const fetchWithProvider = (
   client: Context.Service.Shape<typeof HttpClient.HttpClient>,
