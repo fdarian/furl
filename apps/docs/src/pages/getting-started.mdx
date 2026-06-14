@@ -1,0 +1,37 @@
+# Getting Started
+
+## Install dependencies
+
+From the monorepo root:
+
+```bash
+bun install
+```
+
+## Fetch a page
+
+Run the CLI directly during development:
+
+```bash
+bun run apps/cli/src/main.ts https://vercel.com/blog
+```
+
+For URLs that already end in a file extension such as `.md`, `.txt`, or `.json`, `furl` performs a raw passthrough fetch and prints the body unchanged.
+
+## Manage provider keys
+
+Open the provider manager:
+
+```bash
+bun run apps/cli/src/main.ts providers
+```
+
+That interactive flow stores keys in the OS keychain through `Bun.secrets`.
+
+## Override the provider
+
+The default provider is `jina`. You can force a paid provider for a single request:
+
+```bash
+bun run apps/cli/src/main.ts https://example.com --provider exa
+```

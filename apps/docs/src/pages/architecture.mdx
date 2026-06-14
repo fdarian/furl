@@ -1,0 +1,42 @@
+# Architecture
+
+The repository is a Bun + Turborepo monorepo:
+
+```text
+apps/
+  cli/
+  docs/
+packages/
+  config/
+  core/
+```
+
+## apps/cli
+
+`@furl/cli` exposes:
+
+- `furl <url>`
+- `furl providers`
+
+It uses `effect/unstable/cli`, `BunRuntime`, and `BunServices`.
+
+## packages/core
+
+`@furl/core` contains the actual fetch engine and provider integrations:
+
+- `Furl`
+- `Secrets`
+- `FurlConfigService`
+
+`Furl` owns the fetch-to-markdown flow. `Secrets` wraps `Bun.secrets` for OS keychain storage. `FurlConfigService` reads `~/.config/furl/config.json` to resolve the default provider.
+
+## Effect usage
+
+The runtime is built around Effect v4 beta primitives:
+
+- typed tagged errors
+- services and layers
+- `effect/unstable/http`
+- `effect/unstable/cli`
+
+That keeps provider resolution, filesystem access, HTTP requests, and CLI prompts inside explicit Effect boundaries.

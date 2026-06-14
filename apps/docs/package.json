@@ -1,0 +1,26 @@
+{
+  "name": "@furl/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vocs dev",
+    "build": "vocs build",
+    "preview": "vocs preview",
+    "check:tsc": "tsc --noEmit",
+    "check:lint": "biome check AGENTS.md src package.json tsconfig.json vocs.config.ts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vocs": "2.0.13",
+    "waku": "1.0.0-beta.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}

@@ -1,0 +1,42 @@
+# How It Works
+
+`furl` resolves markdown with a fixed fallback chain implemented in `packages/core`.
+
+## Fallback chain
+
+1. Extension passthrough
+
+If the URL pathname ends with a file extension, `furl` fetches the body as-is and reports `raw`.
+
+2. Direct markdown request
+
+For non-file URLs, `furl` sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body and reports `direct`.
+
+3. `.md` suffix retry
+
+If the direct fetch does not return markdown, `furl` retries the same URL with `.md` appended before any query string. A successful markdown response reports `md-suffix`.
+
+4. Provider fallback
+
+If both direct attempts fail, `furl` resolves a provider and converts the page through:
+
+- `provider:jina`
+- `provider:exa`
+- `provider:firecrawl`
+
+## Source labels
+
+The CLI writes the markdown body to stdout and a one-line diagnostic to stderr:
+
+```text
+↳ via raw
+↳ via direct
+↳ via md-suffix
+↳ via provider:jina
+↳ via provider:exa
+↳ via provider:firecrawl
+```
+
+## Default behavior
+
+The default provider is `jina`, and it works without an API key by routing requests through `https://r.jina.ai/<url>`.

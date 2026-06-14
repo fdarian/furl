@@ -1,0 +1,17 @@
+# furl
+
+`furl` is a curl replacement for AI agents: fetch a URL and return an LLM-optimized markdown representation instead of raw HTML.
+
+## Install
+
+```bash
+bun install
+```
+
+## First fetch
+
+```bash
+bun run apps/cli/src/main.ts https://vercel.com/blog
+```
+
+If the target already exposes markdown, `furl` returns it directly. Otherwise it falls back through `.md` discovery and then a provider-backed markdown extraction flow.

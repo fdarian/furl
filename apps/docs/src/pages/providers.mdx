@@ -1,0 +1,39 @@
+# Providers
+
+`furl` supports three providers for the final conversion step.
+
+## jina
+
+- Default provider
+- Keyless by default
+- Uses `https://r.jina.ai/<url>`
+- Requests markdown with `X-Return-Format: markdown`
+
+If you set `JINA_API_KEY` or store a `jina` key with `furl providers`, `furl` attaches it to raise rate limits. Missing Jina credentials never block fetching.
+
+## exa
+
+- Requires `EXA_API_KEY` or a stored `exa` key
+- Sends `POST https://api.exa.ai/contents`
+- Uses `x-api-key`
+- Returns clean extracted text at `results[0].text`
+
+Exa does not return structured markdown in this implementation. It returns clean text.
+
+## firecrawl
+
+- Requires `FIRECRAWL_API_KEY` or a stored `firecrawl` key
+- Sends `POST https://api.firecrawl.dev/v1/scrape`
+- Uses `Authorization: Bearer <key>`
+- Requests `formats: ['markdown']`
+
+Firecrawl returns structured markdown at `data.markdown`.
+
+## Key resolution
+
+Provider keys resolve in this order:
+
+1. Environment variable override
+2. OS keychain entry saved by `furl providers`
+
+If `exa` or `firecrawl` has no configured key, the CLI fails with a typed `NoProviderKey` error and tells you to run `furl providers`.
