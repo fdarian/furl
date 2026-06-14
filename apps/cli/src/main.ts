@@ -13,6 +13,7 @@ import { Argument, Command, Flag, Prompt } from 'effect/unstable/cli';
 import { FetchHttpClient } from 'effect/unstable/http';
 
 const providerFlag = Flag.choice('provider', [
+  'jina',
   'exa',
   'firecrawl',
 ] as const).pipe(
@@ -171,7 +172,7 @@ const rootCommand = Command.make(
   (config) =>
     Effect.gen(function* () {
       if (Option.isNone(config.url)) {
-        yield* Console.log('Usage: furl <url> [--provider exa|firecrawl]');
+        yield* Console.log('Usage: furl <url> [--provider jina|exa|firecrawl]');
         yield* Console.log('       furl providers');
         return;
       }
