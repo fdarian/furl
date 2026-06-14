@@ -10,6 +10,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
+    "skipLibCheck": true,
     "types": ["react", "react-dom"]
   },
   "include": ["src", "vocs.config.ts"]

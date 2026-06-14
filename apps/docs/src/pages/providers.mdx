@@ -37,3 +37,17 @@ Provider keys resolve in this order:
 2. OS keychain entry saved by `furl providers`
 
 If `exa` or `firecrawl` has no configured key, the CLI fails with a typed `NoProviderKey` error and tells you to run `furl providers`.
+
+## Default provider selection
+
+Provider resolution stays:
+
+1. `--provider` flag for a single invocation
+2. `~/.config/furl/config.json` `provider`
+3. `jina`
+
+The `furl providers` menu now manages both pieces:
+
+- Saving an `exa` or `firecrawl` key also makes that provider the default
+- `Set as default` switches the active provider without re-entering a key
+- Deleting the key for the current default resets the default back to `jina`

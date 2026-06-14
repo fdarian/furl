@@ -1,6 +1,10 @@
 import type React from 'react';
 
 declare global {
+  interface ImportMetaEnv {
+    [key: string]: string | boolean | undefined;
+  }
+
   namespace JSX {
     type Element = React.JSX.Element;
     interface ElementClass extends React.JSX.ElementClass {}

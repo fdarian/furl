@@ -7,7 +7,7 @@
     "build": "vocs build",
     "preview": "vocs preview",
     "check:tsc": "tsc --noEmit",
-    "check:lint": "biome check AGENTS.md src package.json tsconfig.json vocs.config.ts"
+    "check:lint": "biome check AGENTS.md package.json tsconfig.json vocs.config.ts src/jsx.d.ts src/pages"
   },
   "dependencies": {
     "react": "^19.0.0",
