@@ -5,6 +5,7 @@ import { FurlConfigServiceLive, FurlLive, SecretsLive } from '@furl/core';
 import { Effect, Layer } from 'effect';
 import { Command } from 'effect/unstable/cli';
 import { FetchHttpClient } from 'effect/unstable/http';
+import packageJson from '../package.json';
 import { rootCommand } from './commands/root';
 
 const configLayer = FurlConfigServiceLive.pipe(
@@ -30,7 +31,7 @@ const appLayer = Layer.mergeAll(
 );
 
 const program = Command.run(rootCommand, {
-  version: '0.1.0',
+  version: packageJson.version,
 }).pipe(Effect.provide(appLayer));
 
 BunRuntime.runMain(program);
