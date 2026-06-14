@@ -2,6 +2,11 @@
   "name": "furl-cli",
   "version": "0.2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fdarian/furl.git",
+    "directory": "apps/cli"
+  },
   "bin": {
     "furl": "./dist/cli.js"
   },
