@@ -1,0 +1,11 @@
+{
+  "name": "@repo/config",
+  "private": true,
+  "exports": {
+    "./tsconfig-library": "./tsconfig-library.json",
+    "./tsconfig-server": "./tsconfig-server.json"
+  },
+  "dependencies": {
+    "@total-typescript/tsconfig": "^1.0.4"
+  }
+}
