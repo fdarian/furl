@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
 
 import { makeHttpClientStub, makeSecretsStub } from '../test-doubles.ts';
+import { ResolveDecline, ResolveSuccess } from '../types.ts';
 
 import { createDefaultResolvers } from './index.ts';
 
@@ -28,7 +29,7 @@ describe('raw', () => {
       raw.run(new URL('https://example.com/page')),
     );
 
-    expect(outcome).toEqual({ _tag: 'decline' });
+    expect(outcome).toEqual(new ResolveDecline());
   });
 
   it('succeeds with the raw body for a file-extension URL', async () => {
@@ -42,7 +43,7 @@ describe('raw', () => {
       raw.run(new URL('https://example.com/file.md')),
     );
 
-    expect(outcome).toEqual({ _tag: 'success', markdown: '# raw body' });
+    expect(outcome).toEqual(new ResolveSuccess({ markdown: '# raw body' }));
   });
 
   it('errors when the fetch fails', async () => {
@@ -77,7 +78,7 @@ describe('direct', () => {
       direct.run(new URL('https://example.com/page')),
     );
 
-    expect(outcome).toEqual({ _tag: 'decline' });
+    expect(outcome).toEqual(new ResolveDecline());
   });
 
   it('succeeds when the response content-type is markdown', async () => {
@@ -95,7 +96,7 @@ describe('direct', () => {
       direct.run(new URL('https://example.com/page')),
     );
 
-    expect(outcome).toEqual({ _tag: 'success', markdown: '# hello' });
+    expect(outcome).toEqual(new ResolveSuccess({ markdown: '# hello' }));
   });
 
   it('declines (not errors) on a transport failure', async () => {
@@ -109,7 +110,7 @@ describe('direct', () => {
       direct.run(new URL('https://example.com/page')),
     );
 
-    expect(outcome).toEqual({ _tag: 'decline' });
+    expect(outcome).toEqual(new ResolveDecline());
   });
 });
 
@@ -130,7 +131,7 @@ describe('md-suffix', () => {
       mdSuffix.run(new URL('https://example.com/page')),
     );
 
-    expect(outcome).toEqual({ _tag: 'success', markdown: '# suffixed' });
+    expect(outcome).toEqual(new ResolveSuccess({ markdown: '# suffixed' }));
     expect(requestedUrls).toEqual(['https://example.com/page.md']);
   });
 });
@@ -150,7 +151,7 @@ describe('exa', () => {
         exa.run(new URL('https://example.com/page')),
       );
 
-      expect(outcome).toEqual({ _tag: 'decline' });
+      expect(outcome).toEqual(new ResolveDecline());
     } finally {
       if (originalKey === undefined) {
         delete process.env.EXA_API_KEY;
@@ -194,7 +195,7 @@ describe('firecrawl', () => {
         firecrawl.run(new URL('https://example.com/page')),
       );
 
-      expect(outcome).toEqual({ _tag: 'decline' });
+      expect(outcome).toEqual(new ResolveDecline());
     } finally {
       if (originalKey === undefined) {
         delete process.env.FIRECRAWL_API_KEY;
@@ -232,6 +233,6 @@ describe('jina', () => {
       jina.run(new URL('https://example.com/page')),
     );
 
-    expect(outcome).toEqual({ _tag: 'success', markdown: '# via jina' });
+    expect(outcome).toEqual(new ResolveSuccess({ markdown: '# via jina' }));
   });
 });

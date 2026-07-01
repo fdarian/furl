@@ -12,7 +12,7 @@ import type {
 import type { SecretsService } from '../secrets-service.ts';
 
 import { matchAnySpecificity, type Resolver } from './resolver.ts';
-import type { ResolveOutcome } from './types.ts';
+import { ResolveDecline, type ResolveOutcome } from './types.ts';
 
 /**
  * Offline test doubles shared by the plugin package's unit tests. Nothing
@@ -57,7 +57,7 @@ export const makeResolverStub = (
   isDefault: false,
   match: null,
   specificity: matchAnySpecificity,
-  run: () => Effect.succeed<ResolveOutcome>({ _tag: 'decline' }),
+  run: () => Effect.succeed<ResolveOutcome>(new ResolveDecline()),
   ...overrides,
 });
 

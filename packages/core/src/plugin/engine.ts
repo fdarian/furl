@@ -3,6 +3,7 @@ import { Console, Effect } from 'effect';
 import { AllResolversFailed, describeCause } from '../errors.ts';
 
 import type { Resolver } from './resolver.ts';
+import { ResolveDecline } from './types.ts';
 
 export type ResolutionResult = {
   markdown: string;
@@ -27,7 +28,7 @@ export const runResolvers = (
           Effect.catchTag('ResolverError', (error) =>
             Console.error(
               `↳ ${resolver.id} failed: ${describeCause(error.cause)}, continuing`,
-            ).pipe(Effect.as({ _tag: 'decline' as const })),
+            ).pipe(Effect.as(new ResolveDecline())),
           ),
         );
 

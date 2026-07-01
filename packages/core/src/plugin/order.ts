@@ -11,7 +11,12 @@ import {
 import type { DiscoveredPlugin } from './discovery.ts';
 import { resolvePluginConfig } from './resolve-config.ts';
 import { computeSpecificity, type Resolver } from './resolver.ts';
-import type { MatchPattern, ResolveOutcome } from './types.ts';
+import {
+  type MatchPattern,
+  ResolveDecline,
+  type ResolveOutcome,
+  ResolveSuccess,
+} from './types.ts';
 
 type OrderToken =
   | { _tag: 'id'; id: string }
@@ -138,13 +143,12 @@ export const toPluginResolver = (
       });
 
       if (result === null) {
-        return { _tag: 'decline' } satisfies ResolveOutcome;
+        return new ResolveDecline() satisfies ResolveOutcome;
       }
 
-      return {
-        _tag: 'success',
+      return new ResolveSuccess({
         markdown: result.markdown,
-      } satisfies ResolveOutcome;
+      }) satisfies ResolveOutcome;
     }),
 });
 

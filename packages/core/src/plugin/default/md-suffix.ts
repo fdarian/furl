@@ -1,7 +1,11 @@
 import { Effect, Option } from 'effect';
 
 import { matchAnySpecificity, type Resolver } from '../resolver.ts';
-import type { ResolveOutcome } from '../types.ts';
+import {
+  ResolveDecline,
+  type ResolveOutcome,
+  ResolveSuccess,
+} from '../types.ts';
 
 import {
   appendMarkdownSuffix,
@@ -19,8 +23,8 @@ export const mdSuffixResolver = (client: HttpClientService): Resolver => ({
       Effect.map(
         (result): ResolveOutcome =>
           Option.isSome(result)
-            ? { _tag: 'success', markdown: result.value }
-            : { _tag: 'decline' },
+            ? new ResolveSuccess({ markdown: result.value })
+            : new ResolveDecline(),
       ),
     ),
 });

@@ -1,3 +1,5 @@
+import { Data } from 'effect';
+
 /** Declarative host/path matcher used to rank and route plugins for a URL. */
 export type MatchPattern = {
   hostname: string;
@@ -40,6 +42,13 @@ export type PluginManifest = {
  * built-in strategy results before the engine's try-chain runs. Errors are
  * carried on the Effect failure channel, not in this type.
  */
-export type ResolveOutcome =
-  | { _tag: 'success'; markdown: string }
-  | { _tag: 'decline' };
+
+/** A resolver produced markdown for the URL. */
+export class ResolveSuccess extends Data.TaggedClass('success')<{
+  markdown: string;
+}> {}
+
+/** A resolver declined to handle the URL. */
+export class ResolveDecline extends Data.TaggedClass('decline') {}
+
+export type ResolveOutcome = ResolveSuccess | ResolveDecline;
