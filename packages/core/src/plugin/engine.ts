@@ -36,5 +36,5 @@ export const runResolvers = (
       }
     }
 
-    return yield* Effect.fail(new AllResolversFailed({ url: url.toString() }));
+    return yield* new AllResolversFailed({ url: url.toString() });
   });
