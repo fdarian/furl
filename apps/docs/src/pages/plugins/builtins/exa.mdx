@@ -1,0 +1,8 @@
+# exa
+
+`default:exa` sends `POST https://api.exa.ai/contents` with `x-api-key`, and returns clean extracted text at `results[0].text` — not structured markdown.
+
+- Requires a configured key — declines (`NoProviderKey`) without one.
+- Second provider builtin in furl's canonical `default:*` order, after [jina](/plugins/builtins/jina).
+
+See [Providers](/providers) for how to set an `EXA_API_KEY` or store a key today.

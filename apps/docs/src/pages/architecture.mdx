@@ -15,20 +15,25 @@ packages/
 
 `@furl/cli` exposes:
 
-- `furl <url>`
-- `furl providers`
+- `furl <url>` — accepts `--plugin <id>` and `--no-plugins`
+- `furl plugins` — install/uninstall/list/configure discovered plugins
+- `furl secrets set <name>` — store a keychain secret for `secret:<name>` config refs
+- `furl providers` — deprecated alias for managing jina/exa/firecrawl keys
 
 It uses `effect/unstable/cli`, `BunRuntime`, and `BunServices`.
 
 ## packages/core
 
-`@furl/core` contains the actual fetch engine and provider integrations:
+`@furl/core` contains the actual fetch engine, plugin resolution, and provider integrations:
 
 - `Furl`
 - `Secrets`
 - `FurlConfigService`
+- `PluginDiscovery` / `PluginLoader` (`src/plugin/`)
 
-`Furl` owns the fetch-to-markdown flow. `Secrets` wraps `Bun.secrets` for OS keychain storage. `FurlConfigService` reads `~/.config/furl/config.json` to resolve the default provider.
+`Furl` owns the fetch-to-markdown flow. `Secrets` wraps `Bun.secrets` for OS keychain storage. `FurlConfigService` reads `~/.config/furl/config.json` for the `order`/`plugins` overlay (and the legacy `provider` field).
+
+`packages/core/src/plugin/` is where the plugin resolver lives: `discovery.ts` scans `~/.config/furl/plugins/` for plugin folders, `loader.ts` registers the `furl-cli/plugins` Bun virtual module and dynamically imports each entrypoint, `order.ts` expands the `order` config into a concrete, URL-specific resolver list, and `engine.ts` runs that list as a decline/error/success try-chain ahead of the existing fetch chain's `default:*` built-ins. See [Plugins](/plugins/overview).
 
 ## Effect usage
 

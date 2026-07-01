@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./plugins": "./src/plugin/index.ts"
   },
   "scripts": {
     "check:tsc": "tsc --noEmit",
-    "check:lint": "biome check ."
+    "check:lint": "biome check .",
+    "test": "bun test"
   },
   "dependencies": {
     "@repo/config": "workspace:*",

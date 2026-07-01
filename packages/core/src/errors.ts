@@ -36,3 +36,51 @@ export class ConfigError extends Schema.TaggedErrorClass<ConfigError>(
 )('ConfigError', {
   cause: Schema.Defect(),
 }) {}
+
+export class ResolverError extends Schema.TaggedErrorClass<ResolverError>(
+  'furl/ResolverError',
+)('ResolverError', {
+  id: Schema.String,
+  cause: Schema.Defect(),
+}) {}
+
+export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFailed>(
+  'furl/AllResolversFailed',
+)('AllResolversFailed', {
+  url: Schema.String,
+}) {
+  override get message(): string {
+    return `No resolver could produce markdown for ${this.url}.`;
+  }
+}
+
+export class PluginLoadError extends Schema.TaggedErrorClass<PluginLoadError>(
+  'furl/PluginLoadError',
+)('PluginLoadError', {
+  path: Schema.String,
+  cause: Schema.Defect(),
+}) {}
+
+export class PluginInstallError extends Schema.TaggedErrorClass<PluginInstallError>(
+  'furl/PluginInstallError',
+)('PluginInstallError', {
+  url: Schema.String,
+  cause: Schema.Defect(),
+}) {
+  override get message(): string {
+    return `Failed to install plugin from ${this.url}: ${describeCause(this.cause)}`;
+  }
+}
+
+/** Renders an unknown error `cause` as a short human-readable string for stderr messages. */
+export const describeCause = (cause: unknown): string => {
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+
+  if (typeof cause === 'string') {
+    return cause;
+  }
+
+  return JSON.stringify(cause);
+};

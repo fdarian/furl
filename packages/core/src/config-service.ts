@@ -4,13 +4,29 @@ import { ConfigError } from './errors.ts';
 import type { ProviderName } from './provider-name.ts';
 import { providerSchema } from './provider-name.ts';
 
+const pluginConfigValueSchema = Schema.Union([
+  Schema.Record(Schema.String, Schema.Unknown),
+  Schema.Literal(false),
+]);
+
 const furlConfigSchema = Schema.Struct({
   provider: Schema.optional(providerSchema),
+  order: Schema.optional(Schema.Array(Schema.String)),
+  plugins: Schema.optional(
+    Schema.Record(Schema.String, pluginConfigValueSchema),
+  ),
 });
+
+/** A plugin's config overlay value: its args object, or `false` to disable it. */
+export type PluginConfigValue = Record<string, unknown> | false;
 
 export type FurlConfig = {
   provider?: ProviderName | undefined;
+  order?: readonly string[] | undefined;
+  plugins?: Readonly<Record<string, PluginConfigValue>> | undefined;
 };
+
+const defaultOrder: readonly string[] = ['*', 'default:*'];
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
 
@@ -25,10 +41,14 @@ const getHomeDirectory = Effect.sync(() => process.env.HOME).pipe(
   ),
 );
 
-const getConfigFilePath = getHomeDirectory.pipe(
+/** Absolute path to `~/.config/furl` — the base directory for config.json and the plugins dir. */
+export const getConfigDirectoryPath = getHomeDirectory.pipe(
+  Effect.map((homeDirectory) => `${homeDirectory}/${configDirectoryName}`),
+);
+
+const getConfigFilePath = getConfigDirectoryPath.pipe(
   Effect.map(
-    (homeDirectory) =>
-      `${homeDirectory}/${configDirectoryName}/${configFileName}`,
+    (configDirectoryPath) => `${configDirectoryPath}/${configFileName}`,
   ),
 );
 
@@ -42,6 +62,13 @@ export interface FurlConfigServiceShape {
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
   ) => Effect.Effect<ProviderName, ConfigError>;
+  /** The resolver precedence chain, defaulting to `['*', 'default:*']`. */
+  resolveOrder: Effect.Effect<readonly string[], ConfigError>;
+  /** The args overlay for a plugin, or `false` if disabled, or `undefined` if absent. */
+  pluginArgs: (
+    id: string,
+  ) => Effect.Effect<PluginConfigValue | undefined, ConfigError>;
+  isPluginDisabled: (id: string) => Effect.Effect<boolean, ConfigError>;
   write: (config: FurlConfig) => Effect.Effect<void, ConfigError>;
 }
 
@@ -87,6 +114,20 @@ export const FurlConfigServiceLive = Layer.effect(
           }
 
           return 'jina';
+        }),
+      resolveOrder: Effect.gen(function* () {
+        const config = yield* read;
+        return config.order ?? defaultOrder;
+      }),
+      pluginArgs: (id: string) =>
+        Effect.gen(function* () {
+          const config = yield* read;
+          return config.plugins?.[id];
+        }),
+      isPluginDisabled: (id: string) =>
+        Effect.gen(function* () {
+          const config = yield* read;
+          return config.plugins?.[id] === false;
         }),
       write: (config: FurlConfig) =>
         Effect.gen(function* () {

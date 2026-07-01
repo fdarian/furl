@@ -10,8 +10,12 @@
   "bin": {
     "furl": "./dist/cli.js"
   },
+  "exports": {
+    "./plugins": "./src/plugins.ts"
+  },
   "files": [
     "dist",
+    "src/plugins.ts",
     "README.md"
   ],
   "publishConfig": {

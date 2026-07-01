@@ -1,0 +1,56 @@
+# Getting Started
+
+## Installing
+
+```sh
+furl plugins install https://github.com/someone/furl-x
+```
+
+`git clone --depth 1`s the repo into `~/.config/furl/plugins/<folder>/` (config base `~/.config/furl`, the same directory as `config.json`). The plugins directory is scanned to discover what exists; there's no separate registry file. A plugin's identity is its manifest `name`, not the folder name — a repo cloned as `github-someone-furl-x` is still just `x`.
+
+Names `*` and anything starting with `default:` are reserved and rejected at install — see [Overview](/plugins/overview) for the order grammar those tokens belong to.
+
+## Uninstalling
+
+```sh
+furl plugins uninstall x
+```
+
+removes the plugin's folder outright. Toggling a plugin off (below) is not the same as uninstalling it — a disabled plugin's folder stays on disk.
+
+## Configuring
+
+```sh
+furl plugins        # interactive: list installed plugins, toggle enable/disable, configure one
+furl plugins list   # non-interactive listing
+```
+
+The interactive flow lists plugins found by the directory scan along with their enabled/configured state, lets you toggle a plugin on or off, and renders a config form from the plugin's manifest `config` fields.
+
+Config lives at `~/.config/furl/config.json`:
+
+```jsonc
+{
+  "order": ["x", "expensive-x", "*", "default:*"],
+  "plugins": {
+    "x": { "apiKey": "secret:x-api-key", "mode": "metadata" },
+    "some-other-plugin": false
+  }
+}
+```
+
+- `plugins[<id>]` absent → enabled, no args.
+- `plugins[<id>]` an object → passed whole, untouched, to the plugin as its config.
+- `plugins[<id>] === false` → disabled, even if named explicitly in `order`. There is no separate `enabled` key — `false` is the whole value.
+
+The `order` array controls the resolver precedence chain — see [Overview](/plugins/overview) for the token grammar.
+
+## Secrets
+
+Secrets go through the same keychain mechanism `furl` already uses for provider keys (keychain service `com.fdarian.furl`):
+
+```sh
+furl secrets set x-api-key
+```
+
+stores a value under that name; reference it from config as `"secret:x-api-key"`. A `secret`-typed manifest field configured via `furl plugins` does both writes for you — the value goes to the keychain, and a `{ <key>: "secret:<name>" }` reference goes into `config.json` — so plugin authors and users don't need to run `furl secrets set` and hand-edit config separately.
