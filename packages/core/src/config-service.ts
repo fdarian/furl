@@ -41,10 +41,14 @@ const getHomeDirectory = Effect.sync(() => process.env.HOME).pipe(
   ),
 );
 
-const getConfigFilePath = getHomeDirectory.pipe(
+/** Absolute path to `~/.config/furl` — the base directory for config.json and the plugins dir. */
+export const getConfigDirectoryPath = getHomeDirectory.pipe(
+  Effect.map((homeDirectory) => `${homeDirectory}/${configDirectoryName}`),
+);
+
+const getConfigFilePath = getConfigDirectoryPath.pipe(
   Effect.map(
-    (homeDirectory) =>
-      `${homeDirectory}/${configDirectoryName}/${configFileName}`,
+    (configDirectoryPath) => `${configDirectoryPath}/${configFileName}`,
   ),
 );
 
