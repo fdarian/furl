@@ -30,6 +30,8 @@ It uses `effect/unstable/cli`, `BunRuntime`, and `BunServices`.
 
 `Furl` owns the fetch-to-markdown flow. `Secrets` wraps `Bun.secrets` for OS keychain storage. `FurlConfigService` reads `~/.config/furl/config.json` to resolve the default provider.
 
+`packages/core` is also where the planned plugin resolver slots in: it would sit ahead of `Furl`'s fetch-to-markdown flow, discovering plugins from `~/.config/furl/plugins/` and expanding the `order` config into a concrete resolver list before falling through to the existing fetch chain as `default:*` built-ins. See [Plugins](/plugins/overview).
+
 ## Effect usage
 
 The runtime is built around Effect v4 beta primitives:

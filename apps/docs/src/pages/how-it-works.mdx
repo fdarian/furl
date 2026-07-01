@@ -40,3 +40,10 @@ The CLI writes the markdown body to stdout and a one-line diagnostic to stderr:
 ## Default behavior
 
 The default provider is `jina`, and it works without an API key by routing requests through `https://r.jina.ai/<url>`.
+
+## Plugins (planned)
+
+> [!NOTE]
+> Not yet implemented — see [Plugins](/plugins/overview).
+
+This fixed chain is exactly what the planned plugin system extends. Under that design, each stage above becomes a `default:` built-in (`default:raw`, `default:direct`, `default:md-suffix`, `default:jina`/`default:exa`/`default:firecrawl`, detailed in [Builtins](/plugins/builtins/fetch-strategies)), and plugins run ahead of them to handle sites the generic chain can't, like client-rendered pages. See [Plugins](/plugins/overview) for the resolution algorithm.
