@@ -20,7 +20,7 @@ const providerFlag = Flag.choice('provider', [
 const pluginFlag = Flag.string('plugin').pipe(
   Flag.optional,
   Flag.withDescription(
-    'Force a single resolver id (a plugin name or a default:<name> built-in), bypassing the order chain',
+    'Force a single resolver id (a plugin name or a built-in name like "jina"), bypassing the order chain',
   ),
 );
 
