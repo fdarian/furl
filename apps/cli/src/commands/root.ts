@@ -34,7 +34,9 @@ export const rootCommand = Command.make(
 
       const furl = yield* Furl;
       const result = Option.isSome(config.provider)
-        ? yield* furl.fetchWithProvider(config.url.value, config.provider.value)
+        ? yield* furl.fetch(config.url.value, {
+            forcedResolverId: config.provider.value,
+          })
         : yield* furl.fetch(config.url.value);
 
       yield* Console.log(result.markdown);
