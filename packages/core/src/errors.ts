@@ -36,3 +36,20 @@ export class ConfigError extends Schema.TaggedErrorClass<ConfigError>(
 )('ConfigError', {
   cause: Schema.Defect(),
 }) {}
+
+export class ResolverError extends Schema.TaggedErrorClass<ResolverError>(
+  'furl/ResolverError',
+)('ResolverError', {
+  id: Schema.String,
+  cause: Schema.Defect(),
+}) {}
+
+export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFailed>(
+  'furl/AllResolversFailed',
+)('AllResolversFailed', {
+  url: Schema.String,
+}) {
+  override get message(): string {
+    return `No resolver could produce markdown for ${this.url}.`;
+  }
+}
