@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
 
-import { createDefaultResolvers } from './default-resolvers.ts';
-import { makeHttpClientStub, makeSecretsStub } from './test-doubles.ts';
+import { makeHttpClientStub, makeSecretsStub } from '../test-doubles.ts';
+
+import { createDefaultResolvers } from './index.ts';
 
 const findResolver = (
   resolvers: readonly ReturnType<typeof createDefaultResolvers>[number][],

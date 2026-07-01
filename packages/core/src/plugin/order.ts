@@ -7,7 +7,7 @@ import type { SecretsService } from '../secrets-service.ts';
 import {
   type DefaultResolverName,
   defaultResolverNames,
-} from './default-resolvers.ts';
+} from './default/shared.ts';
 import type { DiscoveredPlugin } from './discovery.ts';
 import { resolvePluginConfig } from './resolve-config.ts';
 import { computeSpecificity, type Resolver } from './resolver.ts';

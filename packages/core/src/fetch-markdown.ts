@@ -9,7 +9,7 @@ import type {
   PluginLoadError,
 } from './errors.ts';
 import { FetchError } from './errors.ts';
-import { createDefaultResolvers } from './plugin/default-resolvers.ts';
+import { createDefaultResolvers } from './plugin/default/index.ts';
 import {
   PluginDiscovery,
   PluginDiscoveryLive,
