@@ -17,6 +17,14 @@ const pluginsDirectorySegment = 'plugins';
 const defaultEntrypointFileName = 'index.ts';
 const packageJsonFileName = 'package.json';
 
+/** Absolute path to `~/.config/furl/plugins` — where installed/hand-created plugin folders live. */
+export const getPluginsDirectoryPath = getConfigDirectoryPath.pipe(
+  Effect.map(
+    (configDirectoryPath) =>
+      `${configDirectoryPath}/${pluginsDirectorySegment}`,
+  ),
+);
+
 const isReservedPluginName = (name: string): boolean =>
   name === '*' || name.startsWith('default:');
 
@@ -152,6 +160,30 @@ const validateManifest = (
     return manifest as unknown as PluginManifest;
   });
 
+/**
+ * Loads and structurally validates a single plugin folder's manifest,
+ * propagating `PluginLoadError` on any failure. Shared by directory-wide
+ * discovery (which downgrades failures to a warning) and `furl plugins
+ * install` (which wants a hard failure it can react to).
+ */
+export const loadPluginManifest = (
+  fileSystem: FileSystem.FileSystem,
+  loader: PluginLoaderShape,
+  folderPath: string,
+): Effect.Effect<DiscoveredPlugin, PluginLoadError> =>
+  Effect.gen(function* () {
+    const entrypoint = yield* resolveEntrypoint(fileSystem, folderPath);
+    const loaded = yield* loader.load(entrypoint);
+    const manifest = yield* validateManifest(entrypoint, loaded);
+
+    return {
+      name: manifest.name,
+      folder: folderPath,
+      entrypoint: entrypoint,
+      manifest: manifest,
+    };
+  });
+
 /** Loads a single plugin folder; on any failure, warns to stderr and yields `None` instead of aborting discovery. */
 const discoverPluginFolder = (
   fileSystem: FileSystem.FileSystem,
@@ -173,16 +205,9 @@ const discoverPluginFolder = (
       return Option.none<DiscoveredPlugin>();
     }
 
-    const entrypoint = yield* resolveEntrypoint(fileSystem, folderPath);
-    const loaded = yield* loader.load(entrypoint);
-    const manifest = yield* validateManifest(entrypoint, loaded);
+    const plugin = yield* loadPluginManifest(fileSystem, loader, folderPath);
 
-    return Option.some<DiscoveredPlugin>({
-      name: manifest.name,
-      folder: folderPath,
-      entrypoint: entrypoint,
-      manifest: manifest,
-    });
+    return Option.some(plugin);
   }).pipe(
     Effect.catchTag('PluginLoadError', (error) =>
       Console.error(
@@ -219,13 +244,12 @@ const discoverPlugins = (
   loader: PluginLoaderShape,
 ): Effect.Effect<DiscoveredPlugin[], PluginLoadError> =>
   Effect.gen(function* () {
-    const configDirectory = yield* getConfigDirectoryPath.pipe(
+    const pluginsDirectory = yield* getPluginsDirectoryPath.pipe(
       Effect.mapError(
         (cause) =>
-          new PluginLoadError({ path: '~/.config/furl', cause: cause }),
+          new PluginLoadError({ path: '~/.config/furl/plugins', cause: cause }),
       ),
     );
-    const pluginsDirectory = `${configDirectory}/${pluginsDirectorySegment}`;
     const pluginsDirectoryExists = yield* fileSystem
       .exists(pluginsDirectory)
       .pipe(
