@@ -1,0 +1,77 @@
+# Create your own
+
+> [!IMPORTANT]
+> Not yet implemented — see [Overview](/plugins/overview).
+
+A plugin is a folder containing a TypeScript entrypoint that calls `definePlugin` from `furl/plugins`:
+
+```ts
+import { definePlugin } from 'furl/plugins'
+
+export default definePlugin({
+  name: 'x',
+  match: { hostname: 'x.com', path: '/*/status/*' },
+  async resolve(ctx) {
+    // ...
+  },
+})
+```
+
+- **`name`** is the plugin's identity (see [Getting Started](/plugins/getting-started)) — must not be `*` or start with `default:`.
+- **`match`** is declarative (hostname + optional path pattern). furl uses it to compute specificity for ordering — it does not run your code to decide whether a plugin is a candidate for a URL. You can still `decline` at runtime inside `resolve` for URL variants the pattern itself can't express.
+- **`resolve(ctx)`** receives `ctx.url` (a `URL`), `ctx.config` (the resolved args object from `config.json`, with any `"secret:<name>"` string already swapped for the real keychain value), and `ctx.decline()`.
+  - Return `{ markdown }` on success.
+  - Return `null` or `ctx.decline()` when the plugin turns out not to apply — this is silent, the chain just continues to the next resolver.
+  - `throw` for a genuine failure — furl surfaces it to stderr (`↳ <id> failed: …, continuing`) and keeps going.
+- **`config`** (optional) declares fields for the `furl plugins` form — `key`, `type` (`string | secret | boolean | number | enum`), `label`/`description`, `required?`, and `options` for `enum`. This list is *not* validation and *not* exhaustive: a field too complex for a single CLI value can simply be left off the manifest, and users hand-edit `config.plugins[<id>]` in `config.json` instead — furl passes the whole object through opaquely either way. **Validating that object is the plugin's job, not furl's.**
+
+## Worked example: X (metadata + API modes)
+
+Route `x.com` posts to either the page's embedded tweet metadata (keyless) or the official X API (needs a key). The plugin declares a `mode` config field (enum, defaults to `metadata`) and a `secret` `apiKey` used only when `mode` is `api`:
+
+```ts
+import { definePlugin } from 'furl/plugins'
+
+export default definePlugin({
+  name: 'x',
+  match: { hostname: 'x.com', path: '/*/status/*' }, // twitter.com handled the same way
+  config: [
+    {
+      key: 'mode',
+      type: 'enum',
+      label: 'Resolution mode',
+      options: ['metadata', 'api'],
+      required: false, // defaults to 'metadata'
+    },
+    {
+      key: 'apiKey',
+      type: 'secret',
+      label: 'X API key',
+      required: false, // only needed for mode: 'api'
+    },
+  ],
+  async resolve(ctx) {
+    const mode = ctx.config.mode ?? 'metadata'
+
+    if (mode === 'metadata') {
+      const html = await fetch(ctx.url).then((r) => r.text())
+      const tweet = parseTweetMetadata(html) // reads og:description etc.
+      if (tweet === null) return ctx.decline()
+      return { markdown: renderTweet(tweet) }
+    }
+
+    if (ctx.config.apiKey === undefined) {
+      throw new Error('mode "api" requires apiKey — run `furl plugins` to set it')
+    }
+
+    const tweet = await fetchTweetFromApi(ctx.url, ctx.config.apiKey)
+    return { markdown: renderTweet(tweet) }
+  },
+})
+```
+
+With `plugins.x = { apiKey: "secret:x-api-key", mode: "api" }` in `config.json`, `ctx.config.apiKey` arrives already resolved to the real key — furl swaps `"secret:x-api-key"` for the keychain value before calling `resolve`.
+
+---
+
+See [Overview](/plugins/overview) for the order grammar and resolution algorithm, and [Getting Started](/plugins/getting-started) for installing, configuring, and secrets.

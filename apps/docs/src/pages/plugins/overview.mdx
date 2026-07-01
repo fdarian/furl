@@ -1,0 +1,35 @@
+# Plugins
+
+`furl <url>` resolves markdown by trying a chain of resolvers. A **plugin** overrides how that chain handles specific hosts: given a URL, a plugin either produces markdown, declines ("not mine"), or errors ("mine, but it failed"). Plugins run ahead of furl's built-in `default:` strategies — everything that resolves a URL is either a plugin or a `default:` built-in, and both live in one ordered resolver list.
+
+> [!IMPORTANT]
+> The plugin system described here — `furl/plugins`, `furl plugins`, `furl secrets`, and the `order`/`plugins` config keys — is settled design and **not yet implemented**. Today's CLI only exposes `-p/--provider` and `furl providers` for the three built-in providers — see [How It Works](/how-it-works) and [Providers](/providers).
+
+## Mental model
+
+Plugins are matched to URLs by a declarative host/path pattern (`match`), which lets furl rank them by specificity without running any plugin code. That ranking is what makes the resolver chain "just work" with zero configuration: a plugin scoped to a specific host naturally runs before anything generic.
+
+The chain itself is controlled by an `order` array of tokens:
+
+- `<id>` — a specific plugin, by its manifest name.
+- `*` — every enabled, matching plugin not named elsewhere in `order`, sorted by specificity (narrowest first).
+- `default:<name>` — a specific built-in strategy (see [Builtins](/plugins/builtins/fetch-strategies)).
+- `default:*` — every built-in not named elsewhere, in furl's own canonical order.
+
+When `order` is unset, it defaults to `['*', 'default:*']` — try matching plugins first, then fall through to furl's built-in pipeline.
+
+## Resolution behavior
+
+furl tries each resolver in the expanded list, in order:
+
+- **Declines** silently — the resolver isn't applicable, move to the next.
+- **Errors** — the resolver matched and was attempted but failed; furl surfaces a warning to stderr and moves to the next.
+- **Succeeds** — furl writes the markdown to stdout, prints `↳ via <resolver>` to stderr, and stops.
+
+If every resolver in the list declines or errors, furl exits non-zero — it never emits empty output silently.
+
+## Next steps
+
+- [Getting Started](/plugins/getting-started) — install, configure, and enable plugins.
+- [Builtins](/plugins/builtins/fetch-strategies) — the native fetch strategies and providers plugins run ahead of.
+- [Create your own](/plugins/create-your-own) — author a plugin with `definePlugin`.

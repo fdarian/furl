@@ -1,0 +1,19 @@
+# Fetch strategies
+
+Before falling through to a provider, furl tries three cheap, keyless probes. Under the plugin `order` grammar these are `default:raw`, `default:direct`, and `default:md-suffix` — the first three entries of furl's canonical `default:*` expansion, always tried in this order ahead of the provider builtins ([jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)).
+
+## `default:raw`
+
+If the URL pathname ends with a file extension (`.md`, `.txt`, `.json`, etc.), furl fetches the body as-is. Reports `↳ via raw` today, `↳ via default:raw` under the plugin design.
+
+## `default:direct`
+
+For non-file URLs, furl sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body. Reports `↳ via direct` today, `↳ via default:direct` under the plugin design.
+
+## `default:md-suffix`
+
+If the direct fetch doesn't return markdown, furl retries the same URL with `.md` appended before any query string. A successful markdown response reports `↳ via md-suffix` today, `↳ via default:md-suffix` under the plugin design.
+
+## Why probes run first
+
+These three strategies cost one extra HTTP request and no money. The provider builtins (`default:jina`, `default:exa`, `default:firecrawl`) cost a metered API call, or a rate-limited proxy hop for keyless jina. furl's canonical `default:*` order always tries the free probes first, so a paid or rate-limited provider never runs ahead of a probe that might have succeeded anyway — see [Overview](/plugins/overview) for how `order` can still opt into overriding this per invocation.
