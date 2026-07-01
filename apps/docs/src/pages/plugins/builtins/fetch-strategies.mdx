@@ -1,18 +1,18 @@
 # Fetch strategies
 
-Before falling through to a provider, furl tries three cheap, keyless probes. Under the plugin `order` grammar these are `default:raw`, `default:direct`, and `default:md-suffix` — the first three entries of furl's canonical `default:*` expansion, always tried in this order ahead of the provider builtins ([jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)).
+Before falling through to a provider, furl tries three cheap, keyless probes. In the plugin `order` grammar these are named `default:raw`, `default:direct`, and `default:md-suffix` — the first three entries of furl's canonical `default:*` expansion, always tried in this order ahead of the provider builtins ([jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)).
 
 ## `default:raw`
 
-If the URL pathname ends with a file extension (`.md`, `.txt`, `.json`, etc.), furl fetches the body as-is. Reports `↳ via raw` today, `↳ via default:raw` under the plugin design.
+If the URL pathname ends with a file extension (`.md`, `.txt`, `.json`, etc.), furl fetches the body as-is. Reports `↳ via raw` — the `default:` prefix is only how `order` names this built-in, not the printed source label.
 
 ## `default:direct`
 
-For non-file URLs, furl sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body. Reports `↳ via direct` today, `↳ via default:direct` under the plugin design.
+For non-file URLs, furl sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body. Reports `↳ via direct`.
 
 ## `default:md-suffix`
 
-If the direct fetch doesn't return markdown, furl retries the same URL with `.md` appended before any query string. A successful markdown response reports `↳ via md-suffix` today, `↳ via default:md-suffix` under the plugin design.
+If the direct fetch doesn't return markdown, furl retries the same URL with `.md` appended before any query string. A successful markdown response reports `↳ via md-suffix`.
 
 ## Why probes run first
 

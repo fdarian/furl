@@ -6,4 +6,4 @@
 - Attaching a key raises the rate limit; missing credentials never block fetching.
 - furl's default provider today, and the first provider builtin tried in furl's canonical `default:*` order, after the [fetch strategies](/plugins/builtins/fetch-strategies).
 
-See [Providers](/providers) for how to set a jina key today, and [Getting Started](/plugins/getting-started) for how provider keys fold into plugin secrets under the plugin design.
+See [Providers](/providers) for how to set a jina key via `furl providers`. Provider keys aren't yet exposed as `furl plugins` config fields — see [Getting Started](/plugins/getting-started) for how plugin `secret:<name>` config refs work today.

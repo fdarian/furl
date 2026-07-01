@@ -1,6 +1,6 @@
 # How It Works
 
-`furl` resolves markdown with a fixed fallback chain implemented in `packages/core`.
+`furl` resolves markdown by running an ordered list of **resolvers** implemented in `packages/core`. By default that list is furl's six built-in strategies, tried in this fixed order:
 
 ## Fallback chain
 
@@ -18,32 +18,31 @@ If the direct fetch does not return markdown, `furl` retries the same URL with `
 
 4. Provider fallback
 
-If both direct attempts fail, `furl` resolves a provider and converts the page through:
+If all three probes above decline, `furl` falls through to the provider builtins, in order:
 
-- `provider:jina`
-- `provider:exa`
-- `provider:firecrawl`
+- `jina`
+- `exa`
+- `firecrawl`
 
 ## Source labels
 
-The CLI writes the markdown body to stdout and a one-line diagnostic to stderr:
+The CLI writes the markdown body to stdout and a one-line diagnostic to stderr, naming whichever resolver produced the markdown:
 
 ```text
 ↳ via raw
 ↳ via direct
 ↳ via md-suffix
-↳ via provider:jina
-↳ via provider:exa
-↳ via provider:firecrawl
+↳ via jina
+↳ via exa
+↳ via firecrawl
 ```
+
+A plugin that resolves the URL reports its own manifest `name` instead (e.g. `↳ via x`).
 
 ## Default behavior
 
-The default provider is `jina`, and it works without an API key by routing requests through `https://r.jina.ai/<url>`.
+`jina` is the first provider builtin tried, and it works without an API key by routing requests through `https://r.jina.ai/<url>`.
 
-## Plugins (planned)
+## Plugins
 
-> [!NOTE]
-> Not yet implemented — see [Plugins](/plugins/overview).
-
-This fixed chain is exactly what the planned plugin system extends. Under that design, each stage above becomes a `default:` built-in (`default:raw`, `default:direct`, `default:md-suffix`, `default:jina`/`default:exa`/`default:firecrawl`, detailed in [Builtins](/plugins/builtins/fetch-strategies)), and plugins run ahead of them to handle sites the generic chain can't, like client-rendered pages. See [Plugins](/plugins/overview) for the resolution algorithm.
+This fixed chain is exactly what the plugin system extends. Each stage above is a `default:` built-in (`default:raw`, `default:direct`, `default:md-suffix`, `default:jina`/`default:exa`/`default:firecrawl`, detailed in [Builtins](/plugins/builtins/fetch-strategies)) that can be named in the `order` config; plugins run ahead of them to handle sites the generic chain can't, like client-rendered pages. See [Plugins](/plugins/overview) for the resolution algorithm.

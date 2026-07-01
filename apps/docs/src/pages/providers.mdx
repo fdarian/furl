@@ -38,29 +38,16 @@ Provider keys resolve in this order:
 
 If `exa` or `firecrawl` has no configured key, the CLI fails with a typed `NoProviderKey` error and tells you to run `furl providers`.
 
-## Default provider selection
+## `furl providers` (deprecated)
 
-Provider resolution stays:
-
-1. `--provider` flag for a single invocation
-2. `~/.config/furl/config.json` `provider`
-3. `jina`
-
-The `furl providers` menu now manages both pieces:
+`furl providers` is kept working as a deprecated alias for managing the jina/exa/firecrawl keychain entries:
 
 - Saving an `exa` or `firecrawl` key also makes that provider the default
 - `Set as default` switches the active provider without re-entering a key
 - Deleting the key for the current default resets the default back to `jina`
 
-## Planned: folding into plugins
+That "default provider" is cosmetic for `furl providers`' own menu — it does **not** change which resolver furl tries first. jina/exa/firecrawl are now `default:` built-in resolvers (see [jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)) tried in furl's fixed `default:*` order (`raw`, `direct`, `md-suffix`, `jina`, `exa`, `firecrawl`). To change that precedence, use the `order` config key (e.g. `["default:exa", "*", "default:*"]`) — see [Overview](/plugins/overview).
 
-> [!NOTE]
-> Not yet implemented — see [Plugins](/plugins/overview).
+- `-p/--provider` (deprecated) forces that single resolver directly for one invocation, the same as `--plugin <name>` (e.g. `--plugin jina`) — it skips the `raw`/`direct`/`md-suffix` probes entirely, not just the final fallback step. Prefer `--plugin` or the config `order` key.
 
-The plugins design reframes jina/exa/firecrawl as `default:` built-in strategies (see [jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)) and folds `furl providers` into `furl plugins`. Concretely:
-
-- Today's source labels are `provider:jina`, `provider:exa`, `provider:firecrawl` (see [How It Works](/how-it-works)). Under the plugins design these are renamed to `default:jina`, `default:exa`, `default:firecrawl`.
-- The `provider` key in `config.json` is superseded by `order`, where a provider preference is expressed as `default:<name>` (e.g. `["default:exa", "*", "default:*"]`).
-- `furl providers` and its keychain-backed key management are absorbed into `furl plugins`, since jina/exa/firecrawl become built-ins that declare an `apiKey` secret field the same way a plugin would.
-
-See [Getting Started](/plugins/getting-started) for the full config schema and secret flow, and [Overview](/plugins/overview) for the order grammar.
+jina/exa/firecrawl keys are not yet exposed as `furl plugins` config fields — they still live under `furl providers`, using the same keychain (`com.fdarian.furl`) as plugin `secret:<name>` references. See [Getting Started](/plugins/getting-started) for the plugin config/secrets flow.

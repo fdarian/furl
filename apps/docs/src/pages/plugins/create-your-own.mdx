@@ -1,12 +1,9 @@
 # Create your own
 
-> [!IMPORTANT]
-> Not yet implemented — see [Overview](/plugins/overview).
-
-A plugin is a folder containing a TypeScript entrypoint that calls `definePlugin` from `furl/plugins`:
+A plugin is a folder containing a TypeScript entrypoint that calls `definePlugin` from `furl-cli/plugins`:
 
 ```ts
-import { definePlugin } from 'furl/plugins'
+import { definePlugin } from 'furl-cli/plugins'
 
 export default definePlugin({
   name: 'x',
@@ -16,6 +13,9 @@ export default definePlugin({
   },
 })
 ```
+
+> [!NOTE]
+> `furl-cli/plugins` is a real subpath export of the `furl-cli` package for authoring-time types, and a Bun virtual module the furl CLI intercepts at runtime — a cloned plugin folder needs no `node_modules` install for it to resolve. Type-checking against it currently works inside this monorepo; a plain external `npm i furl-cli` consumer doesn't get types for it yet, since the canonical types live in the still-private, unpublished `@furl/core` package. `definePlugin` itself (an identity function) still works fine without types — you just won't get editor autocomplete outside this repo yet.
 
 - **`name`** is the plugin's identity (see [Getting Started](/plugins/getting-started)) — must not be `*` or start with `default:`.
 - **`match`** is declarative (hostname + optional path pattern). furl uses it to compute specificity for ordering — it does not run your code to decide whether a plugin is a candidate for a URL. You can still `decline` at runtime inside `resolve` for URL variants the pattern itself can't express.
@@ -30,7 +30,7 @@ export default definePlugin({
 Route `x.com` posts to either the page's embedded tweet metadata (keyless) or the official X API (needs a key). The plugin declares a `mode` config field (enum, defaults to `metadata`) and a `secret` `apiKey` used only when `mode` is `api`:
 
 ```ts
-import { definePlugin } from 'furl/plugins'
+import { definePlugin } from 'furl-cli/plugins'
 
 export default definePlugin({
   name: 'x',
