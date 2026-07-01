@@ -5,6 +5,7 @@
     "check:lint": {},
     "check": {
       "dependsOn": ["check:tsc", "check:lint"]
-    }
+    },
+    "test": {}
   }
 }

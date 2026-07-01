@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "check": "turbo run check",
+    "test": "turbo run test",
     "format": "biome check --write",
     "ci:version": "changeset version",
     "ci:release": "changeset publish"

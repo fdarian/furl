@@ -8,7 +8,8 @@
   },
   "scripts": {
     "check:tsc": "tsc --noEmit",
-    "check:lint": "biome check ."
+    "check:lint": "biome check .",
+    "test": "bun test"
   },
   "dependencies": {
     "@repo/config": "workspace:*",
