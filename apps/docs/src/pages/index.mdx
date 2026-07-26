@@ -1,17 +1,46 @@
 # furl
 
-`furl` is a curl replacement for AI agents: fetch a URL and return an LLM-optimized markdown representation instead of raw HTML.
-
-## Install
+You want an AI agent to read a documentation page, so you reach for `curl`. These are the first two lines it gives you back:
 
 ```bash
-bun install
+curl -s https://bun.sh/docs/installation | head -2
 ```
 
-## First fetch
+```text
+<!DOCTYPE html><html lang="en" class="inter_1d81deff-module__CYM0aG__variable papermono…
+function a(p){if(p==null)return"/";p=""+p;if(""===p)return"/";return"/"===p.charAt(0)?p…
+```
+
+Minified JavaScript. The prose you actually wanted is somewhere in the other half-megabyte, wrapped in nav chrome, script tags, and inline styles. Whatever reads this next — an agent, or you — pays for all of it.
+
+`furl` fetches the same URL and prints the page as markdown:
 
 ```bash
-bun run apps/cli/src/main.ts https://vercel.com/blog
+furl https://bun.sh/docs/installation | head -6
 ```
 
-If the target already exposes markdown, `furl` returns it directly. Otherwise it falls back through `.md` discovery and then a provider-backed markdown extraction flow.
+```text
+> ## Documentation Index
+> Fetch the complete documentation index at: https://bun.com/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Installation
+
+```
+
+Same page, 522 KB of HTML down to 13 KB of markdown, and every byte of it is content.
+
+## No key, no signup
+
+Most fetches need neither. furl asks the origin for its own markdown before it considers converting anything, and a surprising number of sites — documentation sites especially — already publish one. Only when that fails does furl fall back to a conversion provider, and the default one is keyless.
+
+## What it isn't
+
+furl fetches one URL and prints markdown. It isn't a crawler, a scraper framework, or a headless browser. There's no caching, so the same URL hits the network every time, and no timeout, so an unresponsive origin will hang until you interrupt it.
+
+## Where to go next
+
+- [Getting started](/getting-started) — install furl and run your first fetch
+- [Fetching pages](/fetching) — flags, output streams, and exit codes
+- [How furl finds markdown](/how-it-works) — the four steps behind a fetch, and one trap worth knowing
+- [Providers](/providers) — jina, exa, firecrawl, and where API keys live

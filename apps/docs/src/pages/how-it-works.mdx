@@ -1,42 +1,62 @@
-# How It Works
+# How furl finds markdown
 
-`furl` resolves markdown with a fixed fallback chain implemented in `packages/core`.
+Before paying for a conversion, furl checks three cheaper ways to get the same page as markdown. Most origins already serve markdown, or serve it one URL away, so furl usually returns without ever calling a provider — which is why it works with no API key configured.
 
-## Fallback chain
+furl resolves a URL through four steps, tried in order. The first one that succeeds wins.
 
-1. Extension passthrough
+## 1. Raw passthrough
 
-If the URL pathname ends with a file extension, `furl` fetches the body as-is and reports `raw`.
+Triggered when the URL's last path segment matches a file extension (`/\.[a-z0-9]+$/i`) — any extension, not only `.md`. Only the pathname is checked; query strings and fragments don't matter.
 
-2. Direct markdown request
+furl sends a plain GET, no `Accept` header, and returns the body unchanged. Source label `raw`.
 
-For non-file URLs, `furl` sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body and reports `direct`.
+This step is strict: a non-2xx response here is a hard failure. It does not fall through to step 2.
 
-3. `.md` suffix retry
+## 2. Direct markdown request
 
-If the direct fetch does not return markdown, `furl` retries the same URL with `.md` appended before any query string. A successful markdown response reports `md-suffix`.
+furl GETs the same URL with `Accept: text/markdown`.
 
-4. Provider fallback
+The response is accepted only if it's 2xx and its `content-type` header contains the substring `markdown`. Anything else — a different content type, a non-2xx status, even a transport error — falls through to the next step rather than failing. Source label `direct`.
 
-If both direct attempts fail, `furl` resolves a provider and converts the page through:
+## 3. `.md` suffix retry
 
-- `provider:jina`
-- `provider:exa`
-- `provider:firecrawl`
+furl appends `.md` to the URL's pathname and retries with the same acceptance test as step 2. Source label `md-suffix`. The query string is untouched; only the pathname changes.
 
-## Source labels
+A trailing slash is kept as part of the pathname, so `https://x.com/docs/` becomes `https://x.com/docs/.md`, and `https://x.com` (pathname `/`) becomes `https://x.com/.md`. Neither is a path most servers recognize, which is a common reason this step misses on directory-style URLs.
 
-The CLI writes the markdown body to stdout and a one-line diagnostic to stderr:
+## 4. Provider
 
-```text
-↳ via raw
-↳ via direct
-↳ via md-suffix
-↳ via provider:jina
-↳ via provider:exa
-↳ via provider:firecrawl
-```
+furl resolves exactly one provider and calls it once — `jina`, `exa`, or `firecrawl` — giving source label `provider:jina`, `provider:exa`, or `provider:firecrawl`. There is no chaining through multiple providers: if the resolved one fails, furl fails.
 
-## Default behavior
+Resolution order:
 
-The default provider is `jina`, and it works without an API key by routing requests through `https://r.jina.ai/<url>`.
+1. `--provider` flag, if given
+2. `provider` field in the config file
+3. `jina`
+
+jina is the only one of the three that works without an API key, which is why it's the default. See [Providers](/providers) for keys and configuring a different default.
+
+## The `.html` trap
+
+:::warning
+Step 1 matches on file extension, not file type. A URL ending `.html`, `.php`, `.aspx`, or any other extension returns raw content and never reaches the markdown steps — and `--provider` does not work around it. The override only changes which provider step 4 uses; it doesn't skip steps 1 through 3, and step 1 still wins whenever the extension matches. There is currently no way to force conversion of a URL like this.
+:::
+
+Verified: `furl https://info.cern.ch/hypertext/WWW/TheProject.html` prints `↳ via raw` and returns the page's raw HTML, unconverted — even with `--provider firecrawl` added.
+
+## Verified examples
+
+| Command | Source |
+|---|---|
+| `furl https://raw.githubusercontent.com/wevm/vocs/main/README.md` | `↳ via raw` |
+| `furl https://bun.sh/docs/installation` | `↳ via direct` |
+| `furl https://example.com` | `↳ via provider:jina` |
+| `furl https://info.cern.ch/hypertext/WWW/TheProject.html` | `↳ via raw` (returns HTML) |
+
+## What furl does not do
+
+- **No timeouts.** A slow or hanging origin means furl waits indefinitely.
+- **No retries.** A transient network error fails the fetch outright; nothing retries the request.
+- **No caching.** Every invocation re-fetches from the origin, even immediately after fetching the same URL.
+- **No concurrency.** furl fetches one URL per invocation.
+- **No size limit.** The entire response body is read regardless of size, with no cutoff for very large pages.

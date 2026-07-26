@@ -1,53 +1,106 @@
 # Providers
 
-`furl` supports three providers for the final conversion step.
+You end up on this page for one of two reasons: the page you fetched didn't convert to markdown on its own, or you want better output or higher rate limits than the default gives you for free.
 
-## jina
+## When you need a provider
 
-- Default provider
-- Keyless by default
-- Uses `https://r.jina.ai/<url>`
-- Requests markdown with `X-Return-Format: markdown`
+A provider only runs as the last resort in [how furl resolves a URL](/how-it-works) — most fetches never reach one. jina is the default provider and needs no key, so a fresh install already works without touching this page.
 
-If you set `JINA_API_KEY` or store a `jina` key with `furl providers`, `furl` attaches it to raise rate limits. Missing Jina credentials never block fetching.
+## Choosing between the three
 
-## exa
+| Provider | Key | Output |
+| --- | --- | --- |
+| `jina` (default) | Optional — raises rate limits | Markdown, after a metadata preamble (`Title:`, `URL Source:`, `Published Time:`, then `Markdown Content:`) |
+| `exa` | Required | Plain extracted text, not markdown |
+| `firecrawl` | Required | Markdown |
 
-- Requires `EXA_API_KEY` or a stored `exa` key
-- Sends `POST https://api.exa.ai/contents`
-- Uses `x-api-key`
-- Returns clean extracted text at `results[0].text`
+jina's metadata prefix means its output isn't a bare document — worth knowing if something downstream expects only the page content.
 
-Exa does not return structured markdown in this implementation. It returns clean text.
+exa is the one to skip if you need structured markdown: it returns clean extracted text regardless of the source page. firecrawl returns markdown.
 
-## firecrawl
+## Setting a key
 
-- Requires `FIRECRAWL_API_KEY` or a stored `firecrawl` key
-- Sends `POST https://api.firecrawl.dev/v1/scrape`
-- Uses `Authorization: Bearer <key>`
-- Requests `formats: ['markdown']`
+`furl providers` is interactive — no flags, no non-interactive mode.
 
-Firecrawl returns structured markdown at `data.markdown`.
+```bash
+furl providers
+```
+
+```text
+? Select a provider ›
+❯ jina  (default · keyless)
+  exa  (not set)
+  firecrawl  (not set)
+  Exit
+```
+
+Each label reflects live state — whether a key is set for that provider, and which one is currently the default.
+
+Picking `jina` with no key stored offers `Set as default`, `Set key`, or `Skip`:
+
+```text
+? Jina is keyless by default. Manage an optional key for higher limits? ›
+❯ Set as default
+  Set key
+  Skip
+```
+
+Saving a jina key does not change the default provider — jina can hold a key purely for rate limits while another provider stays active.
+
+Picking `exa` or `firecrawl` with no key stored goes straight to `Enter <provider> API key:`. Saving one prints `Saved <provider> key.` followed by `<provider> is now your default provider.` — setting a key for either of these two always makes it the default, unlike jina.
+
+If a key is already stored, the provider gets a `Manage <provider>` menu instead, with `Set as default`, `Replace key`, `Delete key`, and `Cancel`. Deleting the key of the provider currently set as default resets the default back to jina and prints `jina is now your default provider because the active provider key was deleted.` Deleting a jina key never touches the default.
+
+Keys are stored in the OS keychain via `Bun.secrets`, under the service name `com.fdarian.furl`. They are never written to disk in plaintext.
 
 ## Key resolution
 
-Provider keys resolve in this order:
+A provider key resolves from exactly two places, in order:
 
-1. Environment variable override
-2. OS keychain entry saved by `furl providers`
+1. An environment variable — `JINA_API_KEY`, `EXA_API_KEY`, or `FIRECRAWL_API_KEY`
+2. The keychain entry saved by `furl providers`
 
-If `exa` or `firecrawl` has no configured key, the CLI fails with a typed `NoProviderKey` error and tells you to run `furl providers`.
+If neither is set, jina still runs keyless. exa and firecrawl fail instead, with:
 
-## Default provider selection
+```text
+No API key configured for exa. Run `furl providers`.
+```
 
-Provider resolution stays:
+Environment variables are also the way to supply a key where the keychain isn't available, such as CI or a container.
 
-1. `--provider` flag for a single invocation
-2. `~/.config/furl/config.json` `provider`
+## Choosing the default provider
+
+Which provider actually runs resolves in order:
+
+1. The [`--provider` flag](/fetching), for one invocation
+2. `provider` in the config file
 3. `jina`
 
-The `furl providers` menu now manages both pieces:
+The config file lives at `~/.config/furl/config.json`, built from `$HOME` — `XDG_CONFIG_HOME` is ignored. It's only ever created by `furl providers`; a plain fetch never writes it. The only field is `provider`, and the only valid values are the three provider names — anything else is a config error.
 
-- Saving an `exa` or `firecrawl` key also makes that provider the default
-- `Set as default` switches the active provider without re-entering a key
-- Deleting the key for the current default resets the default back to `jina`
+```json [~/.config/furl/config.json]
+{
+  "provider": "firecrawl"
+}
+```
+
+## Provider reference
+
+**jina**
+- `GET https://r.jina.ai/<url>`
+- Always sends `X-Return-Format: markdown` and `Accept: text/markdown`; adds `Authorization: Bearer <key>` when a key is present
+- Markdown is the full response body
+
+**exa**
+- `POST https://api.exa.ai/contents`
+- Auth header: `x-api-key: <key>`
+- Body: `{ urls: [url], text: true }`
+- Text is read from `results[0].text`
+- Failure messages: "Exa returned no results", "Exa response is missing results[0].text"
+
+**firecrawl**
+- `POST https://api.firecrawl.dev/v1/scrape`
+- Auth header: `Authorization: Bearer <key>`
+- Body: `{ url: url, formats: ['markdown'] }`
+- Markdown is read from `data.markdown`
+- Failure message: "Firecrawl response is missing data.markdown"

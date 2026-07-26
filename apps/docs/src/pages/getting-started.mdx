@@ -1,37 +1,86 @@
 # Getting Started
 
-## Install dependencies
-
-From the monorepo root:
+## Install
 
 ```bash
-bun install
+brew install fdarian/tap/furl
 ```
 
-## Fetch a page
+This installs a single self-contained binary — there's nothing else to install.
 
-Run the CLI directly during development:
+## Verify
 
 ```bash
-bun run apps/cli/src/main.ts https://vercel.com/blog
+furl --version
 ```
 
-For URLs that already end in a file extension such as `.md`, `.txt`, or `.json`, `furl` performs a raw passthrough fetch and prints the body unchanged.
+```text
+furl v0.2.0
+```
 
-## Manage provider keys
-
-Open the provider manager:
+## First fetch
 
 ```bash
-bun run apps/cli/src/main.ts providers
+furl https://example.com
 ```
 
-That interactive flow stores keys in the OS keychain through `Bun.secrets`.
+```text
+Title: Example Domain
 
-## Override the provider
+URL Source: https://example.com/
 
-The default provider is `jina`. You can force a paid provider for a single request:
+Published Time: Mon, 20 Jul 2026 07:16:20 GMT
+
+Warning: This is a cached snapshot of the original page, consider retry with caching opt-out.
+
+Markdown Content:
+# Example Domain
+
+This domain is for use in documentation examples without needing permission. Avoid use in operations.
+
+[Learn more](https://iana.org/domains/example)
+
+↳ via provider:jina
+```
+
+furl fetched the page, converted it to markdown, and printed it. The last line, `↳ via provider:jina`, says how: example.com has no markdown of its own to serve, so furl fell back to its default provider, jina, to do the conversion.
+
+## Save it to a file
+
+That `↳ via` line is worth a second look — it's not part of the markdown. furl writes the markdown body to stdout and that one diagnostic line to stderr, so redirecting stdout to a file gives you clean markdown while the `↳ via` line still prints to your terminal.
 
 ```bash
-bun run apps/cli/src/main.ts https://example.com --provider exa
+furl https://example.com > example.md
 ```
+
+`example.md` now holds only the markdown body. `↳ via provider:jina` printed to the terminal, not the file.
+
+## Next steps
+
+- [Fetching pages](/fetching) — the full output-stream and exit-code story
+- [How furl finds markdown](/how-it-works) — why this fetch used jina
+
+You won't need an API key unless you want a different provider — see [Providers](/providers).
+
+## Other ways to install
+
+### Prebuilt binaries
+
+Download a binary from the `furl-cli@0.2.0` release on GitHub Releases:
+
+- `furl-darwin-arm64.tar.gz`
+- `furl-darwin-x64.tar.gz`
+- `furl-linux-arm64.tar.gz`
+- `furl-linux-x64.tar.gz`
+
+Each archive contains one executable named `furl`.
+
+### npm
+
+```bash
+npm install -g furl-cli
+```
+
+:::warning
+The published package only runs if Bun is already installed — its entry script starts with `#!/usr/bin/env bun`, not Node. The install itself will succeed, but running `furl` afterward fails unless Bun is on your PATH.
+:::

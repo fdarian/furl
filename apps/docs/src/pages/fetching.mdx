@@ -1,0 +1,113 @@
+# Fetching pages
+
+The basic shape of every invocation:
+
+```bash
+furl <url>
+```
+
+Run it with no URL and furl prints usage to stdout and exits `0`:
+
+```bash
+furl
+```
+
+```text
+Usage: furl <url> [--provider jina|exa|firecrawl]
+       furl providers
+```
+
+## Output streams
+
+furl writes to two streams for a reason: stdout carries only the markdown body, and stderr carries exactly one line reporting where that markdown came from:
+
+```text
+↳ via <source>
+```
+
+Redirect stdout to a file and the diagnostic still shows up in your terminal, because it went to stderr:
+
+```bash
+furl https://bun.sh/docs/installation > page.md
+```
+
+```text
+↳ via direct
+```
+
+`page.md` now holds nothing but the markdown body. The same split means you can pipe stdout into another command without the diagnostic line landing in the content:
+
+```bash
+furl https://bun.sh/docs/installation | wc -l
+```
+
+```text
+↳ via direct
+     346
+```
+
+This is what makes furl composable: redirect, pipe, or capture stdout without ever having to filter out a status line.
+
+`<source>` is one of six labels:
+
+- `raw` — the URL matched a file extension; the body was returned unchanged.
+- `direct` — the origin returned markdown directly for an `Accept: text/markdown` request.
+- `md-suffix` — appending `.md` to the path produced a markdown response.
+- `provider:jina` — the jina provider converted the page.
+- `provider:exa` — the exa provider converted the page.
+- `provider:firecrawl` — the firecrawl provider converted the page.
+
+furl works through these in a fixed order and returns the first one that produces markdown — see [How furl finds markdown](/how-it-works) for the exact rules, including a passthrough trap for URLs ending in `.html`.
+
+## The error trap
+
+:::warning
+On failure, furl exits non-zero, but the error text goes to **stdout**, not stderr. Errors are printed by Effect's default logger, which furl does not redirect.
+:::
+
+Here's `exa` selected with no API key configured:
+
+```bash
+furl https://example.com --provider exa
+```
+
+Exit code `1`, stderr empty, and this on stdout:
+
+```text
+[12:32:35.601] ERROR (#2): furl/NoProviderKey: No API key configured for exa. Run `furl providers`.
+    at <anonymous> (/…/packages/core/src/providers/provider-key.ts:42:37)
+```
+
+That means `furl <url> > page.md` on a failed fetch writes an error log and a stack trace into `page.md` — the file won't be empty, and it won't be markdown either. Always check the exit code; a non-empty output file does not mean the fetch succeeded.
+
+## `--provider` / `-p`
+
+`--provider` (short: `-p`) overrides which provider furl calls if resolution reaches the provider step. Valid values are `jina`, `exa`, and `firecrawl`. It only changes *which* provider gets called — it does not skip the raw, direct, or `.md`-suffix steps that run first.
+
+Reach for it when you want a specific provider's conversion for one request without changing your saved default. See [Providers](/providers) for keys and how the default is chosen.
+
+## Other flags
+
+- `--version`, `-v` — print the installed version.
+- `--help`, `-h` — print the flag reference.
+- `--log-level <level>` — set the minimum log level (`all`, `trace`, `debug`, `info`, `warn`, `warning`, `error`, `fatal`, `none`).
+- `--completions <bash|zsh|fish|sh>` — print a shell completion script.
+
+Install completions by writing the output to your shell's completion directory:
+
+```bash
+furl --completions zsh > ~/.zsh/completions/_furl
+```
+
+## Using furl in a script or agent
+
+The stdout/stderr split makes furl a drop-in replacement for `curl` in a pipeline — pipe or redirect stdout, and branch on the exit code:
+
+```bash
+if furl "$URL" > page.md; then
+  cat page.md
+else
+  echo "fetch failed" >&2
+  exit 1
+fi
+```
