@@ -11,4 +11,5 @@ export default defineConfig({
     { text: 'How furl finds markdown', link: '/how-it-works' },
     { text: 'Providers', link: '/providers' },
   ],
+  socials: [{ link: 'https://github.com/fdarian/furl', icon: 'github' }],
 });
