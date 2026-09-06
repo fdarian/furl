@@ -26,7 +26,17 @@ export type FurlConfig = {
   plugins?: Readonly<Record<string, PluginConfigValue>> | undefined;
 };
 
-const defaultOrder: readonly string[] = ['*', 'default:*'];
+/**
+ * `jina`/`exa`/`firecrawl` hit third-party APIs, so they're opt-in: add
+ * `default:jina` (or `default:*`) to `order`, or pass `--plugin jina`, to
+ * bring them back.
+ */
+const defaultOrder: readonly string[] = [
+  '*',
+  'default:raw',
+  'default:direct',
+  'default:md-suffix',
+];
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
 
@@ -62,7 +72,7 @@ export interface FurlConfigServiceShape {
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
   ) => Effect.Effect<ProviderName, ConfigError>;
-  /** The resolver precedence chain, defaulting to `['*', 'default:*']`. */
+  /** The resolver precedence chain, defaulting to `['*', 'default:raw', 'default:direct', 'default:md-suffix']`. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
   /** The args overlay for a plugin, or `false` if disabled, or `undefined` if absent. */
   pluginArgs: (
