@@ -3,6 +3,7 @@ import { Console, Context, Effect, FileSystem, Layer, Option } from 'effect';
 import { getConfigDirectoryPath } from '../config-service.ts';
 import { describeCause, PluginLoadError } from '../errors.ts';
 
+import { defaultResolverNames } from './default/shared.ts';
 import { PluginLoader, type PluginLoaderShape } from './loader.ts';
 import type { PluginManifest } from './types.ts';
 
@@ -25,8 +26,15 @@ export const getPluginsDirectoryPath = getConfigDirectoryPath.pipe(
   ),
 );
 
+/** Bare built-in resolver ids (`jina`, `raw`, ...) — reserved so a plugin can't shadow one under `order`'s single-id namespace; see `plugin/order.ts`. */
+const reservedResolverNames: ReadonlySet<string> = new Set(
+  defaultResolverNames,
+);
+
 const isReservedPluginName = (name: string): boolean =>
-  name === '*' || name.startsWith('default:');
+  name === '*' ||
+  name.startsWith('default:') ||
+  reservedResolverNames.has(name);
 
 /** Resolves a plugin folder's entrypoint: `index.ts` by default, else `package.json#main`. */
 const resolveEntrypoint = (
