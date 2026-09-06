@@ -376,10 +376,9 @@ export const pluginsUninstallCommand = Command.make(
       );
 
       if (plugin === undefined) {
-        yield* Console.error(
-          `No installed plugin named "${commandConfig.id}".`,
+        return yield* Effect.fail(
+          new Error(`No installed plugin named "${commandConfig.id}".`),
         );
-        return;
       }
 
       yield* fileSystem.remove(plugin.folder, { recursive: true });
