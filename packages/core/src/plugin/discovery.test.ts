@@ -70,7 +70,8 @@ describe('loadPluginManifest', () => {
 
   it('falls back to package.json#main when index.ts is absent', async () => {
     const folder = path.join(tempDir, 'y');
-    fs.mkdirSync(folder, { recursive: true });
+    fs.mkdirSync(path.join(folder, 'dist'), { recursive: true });
+    fs.writeFileSync(path.join(folder, 'dist/entry.js'), '');
     fs.writeFileSync(
       path.join(folder, 'package.json'),
       JSON.stringify({ main: 'dist/entry.js' }),
@@ -163,6 +164,50 @@ describe('loadPluginManifest', () => {
 
     expect(error._tag).toBe('PluginLoadError');
     expect(String(error.cause)).toContain('match.hostname');
+  });
+
+  it('rejects a package.json#main that escapes the plugin folder via ".."', async () => {
+    const folder = path.join(tempDir, 'escaping-main');
+    fs.mkdirSync(folder, { recursive: true });
+    const outsideDir = path.join(tempDir, 'elsewhere');
+    fs.mkdirSync(outsideDir, { recursive: true });
+    fs.writeFileSync(path.join(outsideDir, 'index.ts'), '');
+    fs.writeFileSync(
+      path.join(folder, 'package.json'),
+      JSON.stringify({ main: '../elsewhere/index.ts' }),
+    );
+    const loader = makeLoaderStub({});
+
+    const error = await runWithFileSystem((fileSystem) =>
+      Effect.flip(loadPluginManifest(fileSystem, loader, folder)),
+    );
+
+    expect(error._tag).toBe('PluginLoadError');
+    expect(String(error.cause)).toContain('outside the plugin folder');
+  });
+
+  it('rejects a package.json#main that escapes the plugin folder via a symlink', async () => {
+    const folder = path.join(tempDir, 'symlinked-main');
+    fs.mkdirSync(folder, { recursive: true });
+    const outsideDir = path.join(tempDir, 'symlink-target');
+    fs.mkdirSync(outsideDir, { recursive: true });
+    fs.writeFileSync(path.join(outsideDir, 'index.ts'), '');
+    fs.symlinkSync(
+      path.join(outsideDir, 'index.ts'),
+      path.join(folder, 'entry.ts'),
+    );
+    fs.writeFileSync(
+      path.join(folder, 'package.json'),
+      JSON.stringify({ main: 'entry.ts' }),
+    );
+    const loader = makeLoaderStub({});
+
+    const error = await runWithFileSystem((fileSystem) =>
+      Effect.flip(loadPluginManifest(fileSystem, loader, folder)),
+    );
+
+    expect(error._tag).toBe('PluginLoadError');
+    expect(String(error.cause)).toContain('outside the plugin folder');
   });
 
   it('rejects a manifest with a non-string match.path', async () => {

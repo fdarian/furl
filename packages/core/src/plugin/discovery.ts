@@ -99,7 +99,45 @@ const resolveEntrypoint = (
       );
     }
 
-    return `${folderPath}/${parsedPackageJson.main}`;
+    const entrypointPath = `${folderPath}/${parsedPackageJson.main}`;
+
+    // `main` is attacker-controllable (it's the plugin's own package.json), so
+    // a value like "../../../elsewhere/index.ts" — or a symlink planted under
+    // the folder — could otherwise point the loader at a file outside the
+    // plugin's installed folder. `realPath` resolves both `..` segments and
+    // symlinks, so the containment check catches either escape route.
+    const realFolderPath = yield* fileSystem
+      .realPath(folderPath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new PluginLoadError({ path: folderPath, cause: cause }),
+        ),
+      );
+    const realEntrypointPath = yield* fileSystem
+      .realPath(entrypointPath)
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new PluginLoadError({ path: entrypointPath, cause: cause }),
+        ),
+      );
+
+    const isContained =
+      realEntrypointPath === realFolderPath ||
+      realEntrypointPath.startsWith(`${realFolderPath}/`);
+
+    if (!isContained) {
+      return yield* Effect.fail(
+        new PluginLoadError({
+          path: entrypointPath,
+          cause: new Error(
+            `${packageJsonFileName}#main ("${parsedPackageJson.main}") resolves outside the plugin folder`,
+          ),
+        }),
+      );
+    }
+
+    return entrypointPath;
   });
 
 /** Structurally validates a loaded module's default export as a `PluginManifest` and rejects reserved names. */
