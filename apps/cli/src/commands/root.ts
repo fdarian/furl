@@ -70,7 +70,19 @@ export const rootCommand = Command.make(
 
       yield* Console.log(result.markdown);
       yield* Console.error(`↳ via ${result.source}`);
-    }),
+    }).pipe(
+      Effect.catchTag('AllResolversFailed', (error) =>
+        Effect.gen(function* () {
+          yield* Console.error(
+            'Try `--plugin jina` — keyless, no API key needed.',
+          );
+          yield* Console.error(
+            '`exa` and `firecrawl` also work once you configure an API key.',
+          );
+          return yield* Effect.fail(error);
+        }),
+      ),
+    ),
 ).pipe(
   Command.withSubcommands([pluginsCommand, secretsCommand, providersCommand]),
   Command.withDescription('Fetch a URL and return LLM-optimized markdown'),
