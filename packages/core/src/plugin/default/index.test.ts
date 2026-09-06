@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
 
-import { makeHttpClientStub, makeSecretsStub } from '../test-doubles.ts';
+import { runResolvers } from '../engine.ts';
+import {
+  makeHttpClientStub,
+  makeResolverStub,
+  makeSecretsStub,
+} from '../test-doubles.ts';
 import { ResolveDecline, ResolveFailure, ResolveSuccess } from '../types.ts';
 
 import { createDefaultResolvers } from './index.ts';
@@ -60,6 +65,79 @@ describe('raw', () => {
     expect(outcome).toBeInstanceOf(ResolveFailure);
     expect((outcome as ResolveFailure).error._tag).toBe('ResolverError');
     expect((outcome as ResolveFailure).error.id).toBe('raw');
+  });
+
+  it('aborts a failed .pdf fetch, a document extension with nowhere else to fall through to', async () => {
+    const client = makeHttpClientStub(
+      () => new Response('not found', { status: 404 }),
+    );
+    const resolvers = createDefaultResolvers(client, makeSecretsStub());
+    const raw = findResolver(resolvers, 'raw');
+
+    const outcome = await Effect.runPromise(
+      raw.run(new URL('https://example.com/report.pdf')),
+    );
+
+    expect(outcome).toBeInstanceOf(ResolveFailure);
+  });
+
+  it('declines (does not abort) a failed .html fetch, since the extension also covers ordinary web pages', async () => {
+    const client = makeHttpClientStub(
+      () => new Response('not found', { status: 404 }),
+    );
+    const resolvers = createDefaultResolvers(client, makeSecretsStub());
+    const raw = findResolver(resolvers, 'raw');
+
+    const outcome = await Effect.runPromise(
+      raw.run(new URL('https://example.com/page.html')),
+    );
+
+    expect(outcome).toEqual(new ResolveDecline());
+  });
+
+  it('lets the chain continue past a failed .html fetch, reaching the next resolver', async () => {
+    const client = makeHttpClientStub(
+      () => new Response('not found', { status: 404 }),
+    );
+    const resolvers = createDefaultResolvers(client, makeSecretsStub());
+    const raw = findResolver(resolvers, 'raw');
+    const fallback = makeResolverStub({
+      id: 'fallback',
+      run: () => Effect.succeed(new ResolveSuccess({ markdown: '# fallback' })),
+    });
+
+    const result = await Effect.runPromise(
+      runResolvers(new URL('https://example.com/page.html'), [raw, fallback]),
+    );
+
+    expect(result).toEqual({ markdown: '# fallback', source: 'fallback' });
+  });
+
+  it("reaches the user's configured default provider after a failed .html raw fetch — the order regression this fixes", async () => {
+    const client = makeHttpClientStub(
+      () => new Response('not found', { status: 404 }),
+    );
+    const resolvers = createDefaultResolvers(client, makeSecretsStub());
+    const raw = findResolver(resolvers, 'raw');
+    const mdSuffix = findResolver(resolvers, 'md-suffix');
+    // Stands in for a user's chosen `default:<provider>` token, placed by
+    // `insertProviderToken` right after the free probes (raw/direct/md-suffix)
+    // in `order` — this is the resolver that a too-broad terminal-failure
+    // rule on `raw` would otherwise never let the chain reach.
+    const userDefaultProvider = makeResolverStub({
+      id: 'default:jina',
+      run: () => Effect.succeed(new ResolveSuccess({ markdown: '# via jina' })),
+    });
+
+    const result = await Effect.runPromise(
+      runResolvers(new URL('https://example.com/article.html'), [
+        raw,
+        mdSuffix,
+        userDefaultProvider,
+      ]),
+    );
+
+    expect(result).toEqual({ markdown: '# via jina', source: 'default:jina' });
   });
 });
 
