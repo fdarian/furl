@@ -1,32 +1,38 @@
-# Plugins
+# Plugins [What it is, why, and what it can do]
 
-`furl <url>` resolves markdown by trying a chain of resolvers. A **plugin** overrides how that chain handles specific hosts: given a URL, a plugin either produces markdown, declines ("not mine"), or errors ("mine, but it failed"). Plugins run ahead of furl's built-in `default:` strategies — everything that resolves a URL is either a plugin or a `default:` built-in, and both live in one ordered resolver list.
+furl resolves LLM-friendly websites nicely, but plenty of sites still need extra processing — parsing, for one — before their content is useful to an agent.
 
-## Mental model
+A **plugin** lets you define your own handler for a given URL: how it fetches the content, and how it formats it.
 
-Plugins are matched to URLs by a declarative host/path pattern (`match`), which lets furl rank them by specificity without running any plugin code. That ranking is what makes the resolver chain "just work" with zero configuration: a plugin scoped to a specific host naturally runs before anything generic.
+Plugins compose into the [fetch strategy](/fetch-strategy). A plugin either produces markdown, declines ("not mine"), or errors ("mine, but it failed"). It can also [manage secrets securely](/plugins/getting-started#secrets).
 
-The chain itself is controlled by an `order` array of tokens:
+## A few ideas
 
-- `<id>` — a specific plugin, by its manifest name.
-- `*` — every enabled, matching plugin not named elsewhere in `order`, sorted by specificity (narrowest first).
-- `default:<name>` — a specific built-in strategy (see [Builtins](/plugins/builtins/fetch-strategies)).
-- `default:*` — every built-in not named elsewhere, in furl's own canonical order.
+Plugins in furl serve two main purposes:
 
-When `order` is unset, it defaults to `['*', 'default:raw', 'default:direct', 'default:md-suffix']` — try matching plugins first, then furl's three keyless probes. `jina`, `exa`, and `firecrawl` call a third-party API, so they're opt-in: add `default:jina` (or `default:*` for all six built-ins) to `order`, or pass `--plugin jina` for a single call.
+1. **Fallback parsing**
 
-## Resolution behavior
+	For websites that can't serve markdown. Handing raw HTML to an agent burns tokens on markup it doesn't need.
 
-furl tries each resolver in the expanded list, in order:
+2. **Provider-specific**
 
-- **Declines** silently — the resolver isn't applicable, move to the next.
-- **Errors** — the resolver matched and was attempted but failed; furl surfaces a warning to stderr and moves to the next.
-- **Succeeds** — furl writes the markdown to stdout, prints `↳ via <resolver>` to stderr, and stops.
+	Some providers (see the [examples](#examples) below) expose their content through an API, and the result can be shaped to carry only what matters.
 
-If every resolver in the list declines or errors, furl exits non-zero — it never emits empty output silently.
+
+Probing and parsing is wasted work when you already know how a URL should be handled.
+
+### Examples
+
+1. **GitHub**
+
+	Use the GitHub API: return raw content for a direct link to a file, and a file tree plus README for repo and directory links.
+
+2. **X post**
+
+	Use the X API to return the post content along with its metrics, media URLs, and a few replies.
 
 ## Next steps
 
 - [Getting Started](/plugins/getting-started) — install, configure, and enable plugins.
-- [Builtins](/plugins/builtins/fetch-strategies) — the native fetch strategies and providers plugins run ahead of.
+- [Builtins](/fetch-strategy#additional-resolvers) — the built-in fetch strategies and providers that plugins run ahead of.
 - [Create your own](/plugins/create-your-own) — author a plugin with `definePlugin`.

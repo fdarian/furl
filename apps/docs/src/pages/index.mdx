@@ -1,17 +1,138 @@
 # furl
 
-`furl` is a curl replacement for AI agents: fetch a URL and return an LLM-optimized markdown representation instead of raw HTML.
+furl is a curl replacement for AI agents: it fetches a URL and returns LLM-optimized markdown.
 
-## Install
+It works nicely with [LLM-friendly websites](https://is-agentic.com/), and comes with a [set of strategies](/fetch-strategy) that detect whether a website can serve markdown — so nothing needs parsing and the whole thing runs locally.
 
+furl is also configurable and [extensible with plugins](/plugins/overview).
+
+---
+
+### See it in action
+
+:::code-group
+<div data-title="furl">
 ```bash
-bun install
+furl https://eve.dev/
 ```
 
-## First fetch
+Output:
+```markdown
+# eve
 
+A filesystem-first, Apache-2.0 framework for building durable backend AI agents that run on Vercel or your own infrastructure. eve is currently in beta.
+
+This file helps AI agents understand and use this documentation site.
+
+## Documentation Surfaces
+
+- [Docs](https://eve.dev/docs): Documentation section: docs
+- [Documentation index](https://eve.dev/llms.txt): Curated task-oriented map of the most useful documentation
+- [Full documentation context](https://eve.dev/llms-full.txt): All configured documentation as Markdown
+- [Semantic documentation sitemap](https://eve.dev/sitemap.md): High-level documentation map for agent navigation
+- Canonical HTML pages use `/docs/...`, `/integrations/...`, and `/templates/...` URLs.
+...
+```
+</div>
+<div data-title="curl">
 ```bash
-bun run apps/cli/src/main.ts https://vercel.com/blog
+curl https://eve.dev/
 ```
 
-If the target already exposes markdown, `furl` returns it directly; otherwise it retries with `.md` appended. For sites that need more than that, opt into a provider like `jina` with `--plugin jina` — see [How It Works](/how-it-works).
+Output:
+```html
+<!DOCTYPE html>
+	<html 
+		data-dpl-id="dpl_96XoZyTBc2qfKfdQ21yUA4evwTz3" 
+		class="geist_f7ab312d-module__AHFjPq__variable geist_mono_f1b46983-module__KMLIlG__variable antialiased" lang="en">
+			<head>
+				<meta charSet="utf-8"/>
+				<meta name="viewport" content="width=device-width, initial-scale=1"/>
+				<link rel="preload" as="image" imageSrcSet="/_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=32&amp;q=95 32w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=48&amp;q=95 48w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=64&amp;q=95 64w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=96&amp;q=95 96w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=128&amp;q=95 128w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffal
+...
+```
+</div>
+:::
+
+## Getting started
+
+### Installation
+
+```bash
+brew install fdarian/tap/furl
+```
+
+::::details[Also available via npm]
+
+:::code-group
+
+```bash [npm]
+npx furl-cli [url]
+```
+
+```bash [pnpm]
+pnpx furl-cli [url]
+```
+
+```bash [bun]
+bunx furl-cli [url]
+```
+:::
+::::
+
+### First fetch
+
+```bash
+furl [url]
+furl https://mintlify.com
+furl https://github.com/fdarian/nisi
+```
+
+:::code-group
+<div data-title='Direct'>
+```bash
+furl https://mintlify.com
+```
+
+Output:
+```markdown
+# The Knowledge Platform Built for Agents
+
+> [llms.txt](https://www.mintlify.com/llms.txt)
+
+Self-updating documentation for startups, enterprises, and agents.
+
+URL: https://www.mintlify.com
+...
+```
+
+> Mintlify honors `Accept: text/markdown`, so it served markdown directly.
+</div>
+
+<div data-title='Firecrawl (with parsing)'>
+```bash
+furl https://github.com/fdarian/nisi
+```
+
+Output:
+```markdown
+# nisi
+
+[Permalink: nisi](https://github.com/fdarian/nisi#nisi)
+
+**A simpler way to review code.**
+
+* * *
+
+**What's unique about nisi**:
+
+- Re-review only what changed since you last looked. Every other tool resets 400 lines of a reviewed file when you only added one nit. nisi snapshots your review and diffs from there.
+...
+```
+
+> A GitHub repo page doesn't serve markdown, so firecrawl handled the parsing.
+
+> :badge[Tip] You can [write your own plugin](/plugins/overview) to intercept `github.com/<org>/<repo>`, route it through the GitHub API, and format the result the way you prefer.
+</div>
+:::
+

@@ -5,10 +5,17 @@ export default defineConfig({
   description:
     'A curl replacement for AI agents — fetch any URL as clean markdown.',
   sidebar: [
-    { text: 'Introduction', link: '/' },
-    { text: 'Getting Started', link: '/getting-started' },
-    { text: 'How it works', link: '/how-it-works' },
-    { text: 'Providers', link: '/providers' },
+    {
+      text: 'Introduction',
+      collapsed: false,
+      items: [
+        { text: 'What is furl?', link: '/' },
+        {
+          text: 'Fetch strategy',
+          link: '/fetch-strategy',
+        },
+      ],
+    },
     {
       text: 'Plugins',
       collapsed: false,
@@ -19,10 +26,6 @@ export default defineConfig({
           text: 'Builtins',
           collapsed: false,
           items: [
-            {
-              text: 'Fetch strategies',
-              link: '/plugins/builtins/fetch-strategies',
-            },
             { text: 'jina', link: '/plugins/builtins/jina' },
             { text: 'exa', link: '/plugins/builtins/exa' },
             { text: 'firecrawl', link: '/plugins/builtins/firecrawl' },
@@ -31,6 +34,5 @@ export default defineConfig({
         { text: 'Create your own', link: '/plugins/create-your-own' },
       ],
     },
-    { text: 'Architecture', link: '/architecture' },
   ],
 });

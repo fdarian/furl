@@ -1,8 +1,8 @@
-# Create your own
+# Create your own [Write a resolver for the URLs you care about]
 
-A plugin is a folder containing a TypeScript entrypoint that calls `definePlugin` from `furl-cli/plugins`:
+A plugin is a folder with a TypeScript entrypoint that default-exports `definePlugin`:
 
-```ts
+```ts [index.ts]
 import { definePlugin } from 'furl-cli/plugins'
 
 export default definePlugin({
@@ -14,27 +14,61 @@ export default definePlugin({
 })
 ```
 
-> [!NOTE]
-> `furl-cli/plugins` is a real subpath export of the `furl-cli` package for authoring-time types, and a Bun virtual module the furl CLI intercepts at runtime — a cloned plugin folder needs no `node_modules` install for it to resolve. Type-checking against it currently works inside this monorepo; a plain external `npm i furl-cli` consumer doesn't get types for it yet, since the canonical types live in the still-private, unpublished `@furl/core` package. `definePlugin` itself (an identity function) still works fine without types — you just won't get editor autocomplete outside this repo yet.
+Then register it in [`order`](/plugins/getting-started) so it runs.
 
-- **`name`** is the plugin's identity (see [Getting Started](/plugins/getting-started)) — must not be `*` or start with `default:`.
-- **`match`** is declarative (hostname + optional path pattern). furl uses it to compute specificity for ordering — it does not run your code to decide whether a plugin is a candidate for a URL. You can still `decline` at runtime inside `resolve` for URL variants the pattern itself can't express.
-- **`resolve(ctx)`** receives `ctx.url` (a `URL`), `ctx.config` (the resolved args object from `config.json`, with any `"secret:<name>"` string already swapped for the real keychain value), and `ctx.decline()`.
-  - Return `{ markdown }` on success.
-  - Return `null` or `ctx.decline()` when the plugin turns out not to apply — this is silent, the chain just continues to the next resolver.
-  - `throw` for a genuine failure — furl surfaces it to stderr (`↳ <id> failed: …, continuing`) and keeps going.
-- **`config`** (optional) declares fields for the `furl plugins` form — `key`, `type` (`string | secret | boolean | number | enum`), `label`/`description`, `required?`, and `options` for `enum`. This list is *not* validation and *not* exhaustive: a field too complex for a single CLI value can simply be left off the manifest, and users hand-edit `config.plugins[<id>]` in `config.json` instead — furl passes the whole object through opaquely either way. **Validating that object is the plugin's job, not furl's.**
+## The manifest
 
-## Worked example: X (metadata + API modes)
+::::steps
+##### name
 
-Route `x.com` posts to either the page's embedded tweet metadata (keyless) or the official X API (needs a key). The plugin declares a `mode` config field (enum, defaults to `metadata`) and a `secret` `apiKey` used only when `mode` is `api`:
+> How the plugin is identified everywhere else
 
-```ts
+This is the id you write in `order` and under `plugins` in `config.json` — not the folder name. It can't be `*` or start with `default:`.
+
+##### match
+
+> Which URLs this plugin claims
+
+A declarative hostname plus an optional path pattern. furl reads it to rank plugins by specificity, so a plugin scoped to one host naturally runs ahead of a broader one — without executing any plugin code.
+
+:::details[When the pattern can't express it]
+`match` only decides whether your plugin is a candidate. For URL variants the pattern can't capture, let it match and then decline at runtime inside `resolve`.
+:::
+
+##### resolve
+
+> Turn the URL into markdown
+
+`resolve(ctx)` receives `ctx.url` (a `URL`), `ctx.config` (your args from `config.json`), and `ctx.decline()`. It can return three things:
+
+| Return | Meaning |
+|---|---|
+| `{ markdown }` | Success — furl prints it and stops |
+| `null` or `ctx.decline()` | Not mine — silently move to the next resolver |
+| `throw` | Mine, but it failed — the chain continues, and the cause is reported only if every resolver fails |
+
+##### config
+
+> Optional: fields for the `furl plugins` form
+
+Each field takes a `key`, a `type` (`string`, `secret`, `boolean`, `number`, or `enum`), an optional `label` and `description`, `required`, and `options` for `enum`.
+
+:::details[furl doesn't validate this]
+The list drives the CLI form, nothing more. A field too complex for a single prompt can be left off the manifest — users hand-edit `config.plugins[<id>]` instead, and furl passes the whole object through untouched. **Validating it is your plugin's job.**
+:::
+
+::::
+
+## Worked example: X posts
+
+This plugin routes `x.com` posts through either the page's embedded metadata (keyless) or the official X API (needs a key). It declares a `mode` enum defaulting to `metadata`, and a `secret` field used only when `mode` is `api`:
+
+```ts [index.ts]
 import { definePlugin } from 'furl-cli/plugins'
 
 export default definePlugin({
   name: 'x',
-  match: { hostname: 'x.com', path: '/*/status/*' }, // twitter.com handled the same way
+  match: { hostname: 'x.com', path: '/*/status/*' },
   config: [
     {
       key: 'mode',
@@ -70,8 +104,13 @@ export default definePlugin({
 })
 ```
 
-With `plugins.x = { apiKey: "secret:x-api-key", mode: "api" }` in `config.json`, `ctx.config.apiKey` arrives already resolved to the real key — furl swaps `"secret:x-api-key"` for the keychain value before calling `resolve`.
+With `plugins.x` set to `{ "apiKey": "secret:x-api-key", "mode": "api" }`, `ctx.config.apiKey` arrives as the real key — furl resolves [secrets](/plugins/getting-started#secrets) from the keychain before calling `resolve`.
 
----
+### Further reading
 
-See [Overview](/plugins/overview) for the order grammar and resolution algorithm, and [Getting Started](/plugins/getting-started) for installing, configuring, and secrets.
+:::details[About the `furl-cli/plugins` import]
+
+It's a real subpath export of the `furl-cli` package, and also a Bun virtual module the CLI intercepts at runtime — so a cloned plugin folder resolves it without an `npm install`.
+
+Types currently only work inside this monorepo; the canonical ones live in `@furl/core`, which isn't published yet. `definePlugin` is an identity function, so it still runs fine without them — you just won't get autocomplete.
+:::

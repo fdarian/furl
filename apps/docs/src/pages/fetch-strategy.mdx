@@ -1,0 +1,92 @@
+# Fetch strategy [Learn how furl resolves markdown from a URL]
+
+## Behavior
+
+furl comes with a predefined chain of resolvers that probes what a website supports.
+
+The default chain has three resolvers. They're tried in order, and the first one that succeeds wins.
+
+::::steps
+##### default:raw
+
+> Fetch `../file.ext` as-is
+
+If the URL pathname ends with a file extension (`.md`, `.txt`, `.json`, etc.), furl fetches the file as-is, just like a regular curl.
+
+:::details[.html still returns raw content]
+It matches on any file extension, not on file type. A URL ending in `.html`, `.php`, `.aspx`, or any other extension returns raw content.
+:::
+
+##### default:direct
+
+> Try the `Accept: text/markdown` header
+
+For non-file URLs, furl sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body.
+
+##### default:md-suffix
+
+> Try appending `.md`
+
+If the direct fetch doesn't return markdown, furl retries the same URL with `.md` appended before any query string.
+
+::::
+
+[Plugins](/plugins/overview) share this same chain — name one ahead of `default:*` in `order` and it gets first look at the URL.
+
+### Further reading
+
+:::details[Knowing what was used]
+
+furl logs the resolver (`↳ via [resolver]`) at the end of the output:
+```
+❯ furl some-url.com
+## Content
+Some content in markdown
+
+↳ via md-suffix
+```
+
+That line goes to stderr, so it never ends up in a file or a pipe:
+```bash
+❯ furl https://vercel.com/design.md > design.md
+↳ via raw
+
+❯ cat design.md
+[clean output]
+```
+:::
+
+:::details[Configuration]
+
+Every resolver can be customized: reorder them, remove them, or add your own through [plugins](/plugins/overview).
+
+Here's the default:
+```json [~/.config/furl/config.json]
+{
+  "order": ["default:*"]
+}
+```
+
+`default:*` expands to the three probes above, in that order. It doesn't cover jina, exa, or firecrawl — those call a third-party API, so you name them explicitly.
+:::
+
+## Additional resolvers
+
+You can fall back to a third-party provider to handle the `url → markdown` parsing.
+
+- [jina](/plugins/builtins/jina)
+- [exa](/plugins/builtins/exa)
+- [firecrawl](/plugins/builtins/firecrawl)
+
+Configure it with:
+
+```jsonc [~/.config/furl/config.json]
+{
+  "order": [
+    "default:*",
+    // ... ↓ when everything above declines ...
+    "default:exa"
+    // or "default:jina", "default:firecrawl"
+  ]
+}
+```
