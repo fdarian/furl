@@ -1,5 +1,9 @@
 export type { FurlConfig, PluginConfigValue } from './config-service.ts';
-export { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
+export {
+  FurlConfigService,
+  FurlConfigServiceLive,
+  providerOrderToken,
+} from './config-service.ts';
 export {
   AllResolversFailed,
   ConfigError,

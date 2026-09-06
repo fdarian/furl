@@ -1,4 +1,12 @@
-import { Context, Effect, FileSystem, Layer, Option, Schema } from 'effect';
+import {
+  Console,
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Option,
+  Schema,
+} from 'effect';
 
 import { ConfigError } from './errors.ts';
 import type { ProviderName } from './provider-name.ts';
@@ -37,6 +45,31 @@ const defaultOrder: readonly string[] = [
   'default:direct',
   'default:md-suffix',
 ];
+
+const defaultOrderTokenPrefix = 'default:';
+
+/** The `order` token naming a provider's built-in resolver, e.g. `"default:firecrawl"`. */
+export const providerOrderToken = (provider: ProviderName): string =>
+  `${defaultOrderTokenPrefix}${provider}`;
+
+/** `providerSchema`'s literals — every id `resolveProvider` recognizes as a "provider" token in `order`. */
+const providerNames: readonly ProviderName[] = ['jina', 'exa', 'firecrawl'];
+
+/**
+ * `config.provider` predates the `order`-based resolver chain and is never
+ * read by the fetch path anymore (see `fetchMarkdown` in
+ * `fetch-markdown.ts`). Rather than silently ignore it — leaving a config
+ * field upgraders already have set with no effect — fold it into `order`
+ * for this run and tell them to persist the migration.
+ */
+const migrateLegacyProvider = (
+  legacyProvider: ProviderName,
+  order: readonly string[] | undefined,
+): readonly string[] => {
+  const token = providerOrderToken(legacyProvider);
+  const baseOrder = order ?? defaultOrder;
+  return baseOrder.includes(token) ? baseOrder : [token, ...baseOrder];
+};
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
 
@@ -104,13 +137,34 @@ export const FurlConfigServiceLive = Layer.effect(
         catch: (cause) => new ConfigError({ cause: cause }),
       });
 
-      return yield* decodeConfig(parsedConfig).pipe(
+      const decoded = yield* decodeConfig(parsedConfig).pipe(
         Effect.mapError((cause) => new ConfigError({ cause: cause })),
       );
+
+      if (decoded.provider === undefined) {
+        return decoded;
+      }
+
+      yield* Console.error(
+        `↳ config.json's "provider" field ("${decoded.provider}") is deprecated and no longer read by the fetch chain; using it as "${providerOrderToken(decoded.provider)}" in "order" for this run. Run \`furl providers\` to persist the migration and drop the field.`,
+      );
+
+      return {
+        order: migrateLegacyProvider(decoded.provider, decoded.order),
+        plugins: decoded.plugins,
+      };
     });
 
     return {
       read: read,
+      /**
+       * "Active provider" for `furl providers`' own display purposes: the
+       * first of jina/exa/firecrawl's `default:` tokens found in `order`
+       * (see `providerOrderToken`), since setting one as default now means
+       * putting its token at the front of the chain. Falls back to `jina`
+       * when none are configured — a label only, since an opt-in provider
+       * absent from `order` still won't run.
+       */
       resolveProvider: (providerOverride: Option.Option<ProviderName>) =>
         Effect.gen(function* () {
           if (Option.isSome(providerOverride)) {
@@ -118,9 +172,18 @@ export const FurlConfigServiceLive = Layer.effect(
           }
 
           const config = yield* read;
+          const order = config.order ?? defaultOrder;
+          const providerTokens = new Map(
+            providerNames.map(
+              (provider) => [providerOrderToken(provider), provider] as const,
+            ),
+          );
 
-          if (config.provider !== undefined) {
-            return config.provider;
+          for (const token of order) {
+            const provider = providerTokens.get(token);
+            if (provider !== undefined) {
+              return provider;
+            }
           }
 
           return 'jina';

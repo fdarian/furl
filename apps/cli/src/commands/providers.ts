@@ -1,6 +1,16 @@
-import { FurlConfigService, Secrets } from '@furl/core';
+import type { ProviderName } from '@furl/core';
+import { FurlConfigService, providerOrderToken, Secrets } from '@furl/core';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/unstable/cli';
+
+/** Puts `provider`'s `default:` token at the front of `order`, moving it there if already present. */
+const withProviderFirst = (
+  order: readonly string[],
+  provider: ProviderName,
+): string[] => {
+  const token = providerOrderToken(provider);
+  return [token, ...order.filter((entry) => entry !== token)];
+};
 
 const getProviderStatusTitle = (
   provider: 'jina' | 'exa' | 'firecrawl',
@@ -34,10 +44,21 @@ const getProviderStatusTitle = (
   return keyIsSet ? 'firecrawl  (key set)' : 'firecrawl  (not set)';
 };
 
-const setDefaultProvider = (provider: 'jina' | 'exa' | 'firecrawl') =>
+/** Writes `provider`'s `default:` token to the front of `order`, preserving the rest of the config. */
+const putProviderFirst = (provider: ProviderName) =>
   Effect.gen(function* () {
-    const config = yield* FurlConfigService;
-    yield* config.write({ provider: provider });
+    const configService = yield* FurlConfigService;
+    const config = yield* configService.read;
+    const order = yield* configService.resolveOrder;
+    yield* configService.write({
+      order: withProviderFirst(order, provider),
+      plugins: config.plugins,
+    });
+  });
+
+const setDefaultProvider = (provider: ProviderName) =>
+  Effect.gen(function* () {
+    yield* putProviderFirst(provider);
     yield* Console.log(`${provider} is now your default provider.`);
   });
 
@@ -88,7 +109,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
         yield* Console.log(`Deleted ${provider} key.`);
 
         if (activeProvider === provider) {
-          yield* config.write({ provider: 'jina' });
+          yield* putProviderFirst('jina');
           yield* Console.log(
             'jina is now your default provider because the active provider key was deleted.',
           );

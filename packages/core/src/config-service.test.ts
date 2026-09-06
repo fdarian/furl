@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Option } from 'effect';
 
 import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
 
@@ -134,7 +134,7 @@ describe('FurlConfigService', () => {
     expect(disabled).toEqual({ x: true, y: false, z: false });
   });
 
-  it('read tolerates a config.json with no plugin-system keys (legacy shape)', async () => {
+  it('read migrates a legacy "provider" field into "order", prepended as a default: token', async () => {
     writeConfig({ provider: 'exa' });
 
     const config = await runWithConfig(
@@ -144,7 +144,108 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(config).toEqual({ provider: 'exa' });
+    expect(config).toEqual({
+      order: [
+        'default:exa',
+        '*',
+        'default:raw',
+        'default:direct',
+        'default:md-suffix',
+      ],
+    });
+  });
+
+  it('read folds a legacy "provider" field into an existing custom "order" that lacks it', async () => {
+    writeConfig({ provider: 'firecrawl', order: ['x', '*'] });
+
+    const config = await runWithConfig(
+      Effect.gen(function* () {
+        const service = yield* FurlConfigService;
+        return yield* service.read;
+      }),
+    );
+
+    expect(config).toEqual({ order: ['default:firecrawl', 'x', '*'] });
+  });
+
+  it('read leaves "order" untouched when it already contains the legacy provider\'s token', async () => {
+    writeConfig({ provider: 'exa', order: ['default:exa', '*'] });
+
+    const config = await runWithConfig(
+      Effect.gen(function* () {
+        const service = yield* FurlConfigService;
+        return yield* service.read;
+      }),
+    );
+
+    expect(config).toEqual({ order: ['default:exa', '*'] });
+  });
+
+  it('resolveProvider returns the first provider token found in order', async () => {
+    writeConfig({ order: ['default:firecrawl', 'default:jina'] });
+
+    const provider = await runWithConfig(
+      Effect.gen(function* () {
+        const service = yield* FurlConfigService;
+        return yield* service.resolveProvider(Option.none());
+      }),
+    );
+
+    expect(provider).toBe('firecrawl');
+  });
+
+  it('resolveProvider falls back to "jina" when order has no provider token', async () => {
+    const provider = await runWithConfig(
+      Effect.gen(function* () {
+        const service = yield* FurlConfigService;
+        return yield* service.resolveProvider(Option.none());
+      }),
+    );
+
+    expect(provider).toBe('jina');
+  });
+
+  it('resolveProvider picks up a provider token migrated from a legacy "provider" field', async () => {
+    writeConfig({ provider: 'firecrawl' });
+
+    const provider = await runWithConfig(
+      Effect.gen(function* () {
+        const service = yield* FurlConfigService;
+        return yield* service.resolveProvider(Option.none());
+      }),
+    );
+
+    expect(provider).toBe('firecrawl');
+  });
+
+  it('writing order with a provider token first (what `furl providers` now does) persists and round-trips', async () => {
+    writeConfig({ order: ['*', 'default:raw'], plugins: { x: { key: 1 } } });
+
+    const result = await runWithConfig(
+      Effect.gen(function* () {
+        const service = yield* FurlConfigService;
+        const config = yield* service.read;
+        const order = yield* service.resolveOrder;
+        yield* service.write({
+          order: [
+            'default:firecrawl',
+            ...order.filter((t) => t !== 'default:firecrawl'),
+          ],
+          plugins: config.plugins,
+        });
+        return {
+          order: yield* service.resolveOrder,
+          provider: yield* service.resolveProvider(Option.none()),
+          args: yield* service.pluginArgs('x'),
+        };
+      }),
+    );
+
+    expect(result).toEqual({
+      order: ['default:firecrawl', '*', 'default:raw'],
+      provider: 'firecrawl',
+      args: { key: 1 },
+    });
   });
 
   it('read returns {} when config.json does not exist', async () => {
