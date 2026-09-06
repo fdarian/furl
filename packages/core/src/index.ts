@@ -23,6 +23,12 @@ export {
   PluginDiscovery,
   PluginDiscoveryLive,
 } from './plugin/discovery.ts';
+export type { PluginInstallResult } from './plugin/install.ts';
+export {
+  installPlugin,
+  removeFolder,
+  validateInstalledPlugin,
+} from './plugin/install.ts';
 export type { PluginLoaderShape } from './plugin/loader.ts';
 export { PluginLoader, PluginLoaderLive } from './plugin/loader.ts';
 export type { ConfigField, PluginManifest } from './plugin/types.ts';

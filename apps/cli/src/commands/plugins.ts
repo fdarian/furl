@@ -7,16 +7,17 @@ import type {
 } from '@furl/core';
 import {
   FurlConfigService,
-  getPluginsDirectoryPath,
-  loadPluginManifest,
+  installPlugin,
   PluginDiscovery,
   PluginInstallError,
   PluginLoader,
+  removeFolder,
   Secrets,
+  validateInstalledPlugin,
 } from '@furl/core';
 import type { Terminal } from 'effect';
 import { Console, Effect, FileSystem, Option, Redacted } from 'effect';
-import { Argument, Command, Prompt } from 'effect/unstable/cli';
+import { Argument, Command, Flag, Prompt } from 'effect/unstable/cli';
 
 const isConfiguredValue = (
   value: Record<string, unknown> | false | undefined,
@@ -33,69 +34,6 @@ const getPluginStatusTitle = (
     ? `${name}  (${state} · configured)`
     : `${name}  (${state})`;
 };
-
-const derivePluginFolderName = (
-  url: string,
-): Effect.Effect<string, PluginInstallError> =>
-  Effect.gen(function* () {
-    const parsedUrl = yield* Effect.try({
-      try: () => new URL(url),
-      catch: (cause) => new PluginInstallError({ url: url, cause: cause }),
-    });
-    const hostLabels = parsedUrl.hostname.split('.');
-    const hostLabel = hostLabels.at(-2) ?? parsedUrl.hostname;
-    const pathSegments = parsedUrl.pathname
-      .split('/')
-      .filter((segment) => segment.length > 0)
-      .map((segment) => segment.replace(/\.git$/, ''));
-
-    if (pathSegments.length === 0) {
-      return yield* Effect.fail(
-        new PluginInstallError({
-          url: url,
-          cause: new Error(
-            'URL has no repository path to derive a folder name from',
-          ),
-        }),
-      );
-    }
-
-    return [hostLabel, ...pathSegments].join('-');
-  });
-
-const cloneRepository = (
-  url: string,
-  destination: string,
-): Effect.Effect<void, PluginInstallError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const clone = Bun.spawn(
-        ['git', 'clone', '--depth', '1', url, destination],
-        {
-          stdout: 'ignore',
-          stderr: 'pipe',
-        },
-      );
-      const exitCode = await clone.exited;
-
-      if (exitCode !== 0) {
-        const stderr = await new Response(clone.stderr).text();
-        throw new Error(
-          `git clone exited with code ${exitCode}${stderr.trim().length > 0 ? `: ${stderr.trim()}` : ''}`,
-        );
-      }
-    },
-    catch: (cause) => new PluginInstallError({ url: url, cause: cause }),
-  });
-
-/** Best-effort cleanup after a failed install; never masks the original error. */
-const removeFolder = (
-  fileSystem: FileSystem.FileSystem,
-  folderPath: string,
-): Effect.Effect<void> =>
-  fileSystem
-    .remove(folderPath, { recursive: true, force: true })
-    .pipe(Effect.ignore);
 
 const secretReferencePrefix = 'secret:';
 
@@ -333,42 +271,65 @@ const installUrlArgument = Argument.string('url').pipe(
   Argument.withDescription('Git URL of the plugin repository to clone'),
 );
 
+const installYesFlag = Flag.boolean('yes').pipe(
+  Flag.withDefault(false),
+  Flag.withAlias('y'),
+  Flag.withDescription(
+    "Skip the confirmation prompt and run the plugin's code immediately; required in non-interactive sessions",
+  ),
+);
+
+/**
+ * `Prompt.confirm` reads keypresses from stdin; when stdin isn't a TTY (CI, a
+ * pipe, `< /dev/null`) it never receives one and the whole command exits
+ * silently instead of confirming or declining. Check this up front so a
+ * non-interactive caller without `--yes` gets a clear error instead of an
+ * unconfirmed install or a hang.
+ */
+const isInteractiveStdin = Effect.sync(() => process.stdin.isTTY === true);
+
 export const pluginsInstallCommand = Command.make(
   'install',
-  { url: installUrlArgument },
+  { url: installUrlArgument, yes: installYesFlag },
   (commandConfig) =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const loader = yield* PluginLoader;
       const discovery = yield* PluginDiscovery;
 
-      const pluginsDirectory = yield* getPluginsDirectoryPath.pipe(
-        Effect.mapError(
-          (cause) =>
-            new PluginInstallError({ url: commandConfig.url, cause: cause }),
-        ),
+      const installed = yield* installPlugin(commandConfig.url);
+      const displayName = Option.getOrElse(
+        installed.packageName,
+        () => installed.folderPath,
       );
-      const folderName = yield* derivePluginFolderName(commandConfig.url);
-      const destination = `${pluginsDirectory}/${folderName}`;
 
-      const alreadyExists = yield* fileSystem
-        .exists(destination)
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new PluginInstallError({ url: commandConfig.url, cause: cause }),
-          ),
-        );
+      yield* Console.log(`Cloned "${displayName}" to ${installed.folderPath}.`);
 
-      if (alreadyExists) {
-        return yield* Effect.fail(
-          new PluginInstallError({
-            url: commandConfig.url,
-            cause: new Error(
-              `"${destination}" already exists; uninstall it first`,
-            ),
-          }),
-        );
+      if (!commandConfig.yes) {
+        const interactive = yield* isInteractiveStdin;
+
+        if (!interactive) {
+          yield* removeFolder(fileSystem, installed.folderPath);
+          return yield* Effect.fail(
+            new PluginInstallError({
+              url: commandConfig.url,
+              cause: new Error(
+                "Refusing to run this plugin's code without confirmation in a non-interactive session; re-run with --yes to confirm.",
+              ),
+            }),
+          );
+        }
+
+        const confirmed = yield* Prompt.confirm({
+          message: `Continue installing "${displayName}"? This will run the plugin's code.`,
+          initial: false,
+        });
+
+        if (!confirmed) {
+          yield* removeFolder(fileSystem, installed.folderPath);
+          yield* Console.log('Install cancelled.');
+          return;
+        }
       }
 
       const existingPlugins = yield* discovery.discover.pipe(
@@ -378,47 +339,17 @@ export const pluginsInstallCommand = Command.make(
         ),
       );
 
-      yield* fileSystem
-        .makeDirectory(pluginsDirectory, { recursive: true })
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new PluginInstallError({ url: commandConfig.url, cause: cause }),
-          ),
-        );
-
-      yield* cloneRepository(commandConfig.url, destination);
-
-      const installed = yield* loadPluginManifest(
+      const plugin = yield* validateInstalledPlugin(
         fileSystem,
         loader,
-        destination,
+        installed,
+        existingPlugins,
       ).pipe(
-        Effect.mapError(
-          (cause) =>
-            new PluginInstallError({ url: commandConfig.url, cause: cause }),
-        ),
-        Effect.tapError(() => removeFolder(fileSystem, destination)),
+        Effect.tapError(() => removeFolder(fileSystem, installed.folderPath)),
       );
-
-      const isDuplicate = existingPlugins.some(
-        (plugin) => plugin.manifest.name === installed.manifest.name,
-      );
-
-      if (isDuplicate) {
-        yield* removeFolder(fileSystem, destination);
-        return yield* Effect.fail(
-          new PluginInstallError({
-            url: commandConfig.url,
-            cause: new Error(
-              `A plugin named "${installed.manifest.name}" is already installed`,
-            ),
-          }),
-        );
-      }
 
       yield* Console.log(
-        `Installed "${installed.manifest.name}" to ${destination}.`,
+        `Installed "${plugin.manifest.name}" to ${installed.folderPath}.`,
       );
     }),
 ).pipe(
