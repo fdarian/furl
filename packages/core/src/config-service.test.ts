@@ -5,7 +5,11 @@ import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, Layer, Option } from 'effect';
 
-import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
+import {
+  FurlConfigService,
+  FurlConfigServiceLive,
+  insertProviderToken,
+} from './config-service.ts';
 
 /**
  * Exercises `FurlConfigServiceLive` against a real, disposable `$HOME` on
@@ -134,7 +138,7 @@ describe('FurlConfigService', () => {
     expect(disabled).toEqual({ x: true, y: false, z: false });
   });
 
-  it('read migrates a legacy "provider" field into "order", prepended as a default: token', async () => {
+  it('read migrates a legacy "provider" field into "order", appended after the free probes', async () => {
     writeConfig({ provider: 'exa' });
 
     const config = await runWithConfig(
@@ -146,11 +150,11 @@ describe('FurlConfigService', () => {
 
     expect(config).toEqual({
       order: [
-        'default:exa',
         '*',
         'default:raw',
         'default:direct',
         'default:md-suffix',
+        'default:exa',
       ],
     });
   });
@@ -165,7 +169,7 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(config).toEqual({ order: ['default:firecrawl', 'x', '*'] });
+    expect(config).toEqual({ order: ['x', '*', 'default:firecrawl'] });
   });
 
   it('read leaves "order" untouched when it already contains the legacy provider\'s token', async () => {
@@ -218,7 +222,7 @@ describe('FurlConfigService', () => {
     expect(provider).toBe('firecrawl');
   });
 
-  it('writing order with a provider token first (what `furl providers` now does) persists and round-trips', async () => {
+  it('writing an inserted provider token (what `furl providers` now does) persists and round-trips', async () => {
     writeConfig({ order: ['*', 'default:raw'], plugins: { x: { key: 1 } } });
 
     const result = await runWithConfig(
@@ -227,10 +231,7 @@ describe('FurlConfigService', () => {
         const config = yield* service.read;
         const order = yield* service.resolveOrder;
         yield* service.write({
-          order: [
-            'default:firecrawl',
-            ...order.filter((t) => t !== 'default:firecrawl'),
-          ],
+          order: insertProviderToken(order, 'firecrawl'),
           plugins: config.plugins,
         });
         return {
@@ -242,7 +243,7 @@ describe('FurlConfigService', () => {
     );
 
     expect(result).toEqual({
-      order: ['default:firecrawl', '*', 'default:raw'],
+      order: ['*', 'default:raw', 'default:firecrawl'],
       provider: 'firecrawl',
       args: { key: 1 },
     });
@@ -257,5 +258,69 @@ describe('FurlConfigService', () => {
     );
 
     expect(config).toEqual({});
+  });
+});
+
+describe('insertProviderToken', () => {
+  it('places the provider after the free probes, not at the front of the chain', () => {
+    // Pins the fix: a "default provider" must never outrank furl's free,
+    // keyless probes — the previous prepend-to-front behavior would have
+    // made every fetch pay for a provider call the probes could have
+    // avoided.
+    const order = insertProviderToken(
+      ['*', 'default:raw', 'default:direct', 'default:md-suffix'],
+      'firecrawl',
+    );
+
+    expect(order).toEqual([
+      '*',
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
+      'default:firecrawl',
+    ]);
+  });
+
+  it('places the new provider ahead of an existing provider token, both still after the free probes', () => {
+    const order = insertProviderToken(
+      [
+        '*',
+        'default:raw',
+        'default:direct',
+        'default:md-suffix',
+        'default:jina',
+      ],
+      'firecrawl',
+    );
+
+    expect(order).toEqual([
+      '*',
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
+      'default:firecrawl',
+      'default:jina',
+    ]);
+  });
+
+  it('moves an already-present token ahead of another provider instead of duplicating it', () => {
+    const order = insertProviderToken(
+      ['default:raw', 'default:jina', 'default:firecrawl'],
+      'firecrawl',
+    );
+
+    expect(order).toEqual(['default:raw', 'default:firecrawl', 'default:jina']);
+  });
+
+  it('respects a hand-edited order lacking the free probes: inserts ahead of another provider token, otherwise unchanged', () => {
+    const order = insertProviderToken(['default:jina', 'x', '*'], 'firecrawl');
+
+    expect(order).toEqual(['default:firecrawl', 'default:jina', 'x', '*']);
+  });
+
+  it('appends when the order has neither a free probe nor another provider token', () => {
+    const order = insertProviderToken(['x', '*'], 'firecrawl');
+
+    expect(order).toEqual(['x', '*', 'default:firecrawl']);
   });
 });

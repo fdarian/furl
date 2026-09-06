@@ -49,18 +49,77 @@ const defaultOrder: readonly string[] = [
 const defaultOrderTokenPrefix = 'default:';
 
 /** The `order` token naming a provider's built-in resolver, e.g. `"default:firecrawl"`. */
-export const providerOrderToken = (provider: ProviderName): string =>
+const providerOrderToken = (provider: ProviderName): string =>
   `${defaultOrderTokenPrefix}${provider}`;
 
 /** `providerSchema`'s literals — every id `resolveProvider` recognizes as a "provider" token in `order`. */
 const providerNames: readonly ProviderName[] = ['jina', 'exa', 'firecrawl'];
+
+const providerOrderTokens: ReadonlySet<string> = new Set(
+  providerNames.map(providerOrderToken),
+);
+
+/**
+ * furl's free, keyless probes — these must keep winning over a paid/rate-limited
+ * provider by default, so a "default provider" only ever competes for
+ * precedence among *other* providers, never against these.
+ */
+const freeProbeOrderTokens: readonly string[] = [
+  'default:raw',
+  'default:direct',
+  'default:md-suffix',
+];
+
+/**
+ * Places `provider`'s token in `order`: immediately before the first other
+ * provider token found (so the chosen provider outranks the rest), or —
+ * failing that — immediately after the last free-probe token found, or at
+ * the end if neither is present. This never reorders anything else in
+ * `order`, so a hand-edited chain that doesn't follow the canonical
+ * probes-then-providers shape is respected rather than rebuilt.
+ */
+export const insertProviderToken = (
+  order: readonly string[],
+  provider: ProviderName,
+): string[] => {
+  const token = providerOrderToken(provider);
+  const withoutToken = order.filter((entry) => entry !== token);
+
+  const otherProviderIndex = withoutToken.findIndex((entry) =>
+    providerOrderTokens.has(entry),
+  );
+
+  if (otherProviderIndex !== -1) {
+    return [
+      ...withoutToken.slice(0, otherProviderIndex),
+      token,
+      ...withoutToken.slice(otherProviderIndex),
+    ];
+  }
+
+  const lastFreeProbeIndex = withoutToken.reduce(
+    (lastIndex, entry, index) =>
+      freeProbeOrderTokens.includes(entry) ? index : lastIndex,
+    -1,
+  );
+  const insertAt =
+    lastFreeProbeIndex === -1 ? withoutToken.length : lastFreeProbeIndex + 1;
+
+  return [
+    ...withoutToken.slice(0, insertAt),
+    token,
+    ...withoutToken.slice(insertAt),
+  ];
+};
 
 /**
  * `config.provider` predates the `order`-based resolver chain and is never
  * read by the fetch path anymore (see `fetchMarkdown` in
  * `fetch-markdown.ts`). Rather than silently ignore it — leaving a config
  * field upgraders already have set with no effect — fold it into `order`
- * for this run and tell them to persist the migration.
+ * for this run and tell them to persist the migration. Placed via
+ * `insertProviderToken` rather than prepended, so an upgrading user keeps
+ * the free probes running first, exactly like before `order` existed.
  */
 const migrateLegacyProvider = (
   legacyProvider: ProviderName,
@@ -68,7 +127,9 @@ const migrateLegacyProvider = (
 ): readonly string[] => {
   const token = providerOrderToken(legacyProvider);
   const baseOrder = order ?? defaultOrder;
-  return baseOrder.includes(token) ? baseOrder : [token, ...baseOrder];
+  return baseOrder.includes(token)
+    ? baseOrder
+    : insertProviderToken(baseOrder, legacyProvider);
 };
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
@@ -160,10 +221,10 @@ export const FurlConfigServiceLive = Layer.effect(
       /**
        * "Active provider" for `furl providers`' own display purposes: the
        * first of jina/exa/firecrawl's `default:` tokens found in `order`
-       * (see `providerOrderToken`), since setting one as default now means
-       * putting its token at the front of the chain. Falls back to `jina`
-       * when none are configured — a label only, since an opt-in provider
-       * absent from `order` still won't run.
+       * (see `insertProviderToken`, which places the chosen provider ahead
+       * of the others but still behind the free probes). Falls back to
+       * `jina` when none are configured — a label only, since an opt-in
+       * provider absent from `order` still won't run.
        */
       resolveProvider: (providerOverride: Option.Option<ProviderName>) =>
         Effect.gen(function* () {

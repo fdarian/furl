@@ -43,8 +43,8 @@ If `exa` or `firecrawl` has no configured key, the CLI fails with a typed `NoPro
 `furl providers` is kept working as a deprecated alias for managing the jina/exa/firecrawl keychain entries:
 
 - Saving an `exa` or `firecrawl` key also makes that provider the default
-- `Set as default` puts that provider's `default:<name>` token at the front of the `order` config, ahead of everything else — including the free `raw`/`direct`/`md-suffix` probes
-- Deleting the key for the current default removes its token and puts `default:jina` at the front instead
+- `Set as default` puts that provider's `default:<name>` token into the `order` config ahead of the other providers — but still behind the free `raw`/`direct`/`md-suffix` probes, which always run first regardless of which provider is default. Setting a default provider picks which provider wins if the probes decline; it never makes furl skip straight to a paid or rate-limited call for a URL the probes could have handled for free.
+- Deleting the key for the current default removes its token and puts `default:jina` there instead
 
 jina/exa/firecrawl are `default:` built-in resolvers (see [jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)), and they're opt-in: furl's default `order` only runs `raw` → `direct` → `md-suffix` until something adds a provider's token. `furl providers` is one way to do that; you can also edit `order` by hand — add `default:jina` (or `default:*` for furl's full canonical order — `raw`, `direct`, `md-suffix`, `jina`, `exa`, `firecrawl`) — or pass `--plugin jina` for one call. See [Overview](/plugins/overview).
 

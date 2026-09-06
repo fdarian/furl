@@ -1,16 +1,7 @@
 import type { ProviderName } from '@furl/core';
-import { FurlConfigService, providerOrderToken, Secrets } from '@furl/core';
+import { FurlConfigService, insertProviderToken, Secrets } from '@furl/core';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/unstable/cli';
-
-/** Puts `provider`'s `default:` token at the front of `order`, moving it there if already present. */
-const withProviderFirst = (
-  order: readonly string[],
-  provider: ProviderName,
-): string[] => {
-  const token = providerOrderToken(provider);
-  return [token, ...order.filter((entry) => entry !== token)];
-};
 
 const getProviderStatusTitle = (
   provider: 'jina' | 'exa' | 'firecrawl',
@@ -44,21 +35,25 @@ const getProviderStatusTitle = (
   return keyIsSet ? 'firecrawl  (key set)' : 'firecrawl  (not set)';
 };
 
-/** Writes `provider`'s `default:` token to the front of `order`, preserving the rest of the config. */
-const putProviderFirst = (provider: ProviderName) =>
+/**
+ * Writes `provider`'s `default:` token into `order` — ahead of the other
+ * providers, but still behind the free `raw`/`direct`/`md-suffix` probes
+ * (see `insertProviderToken`) — preserving the rest of the config.
+ */
+const putProviderInOrder = (provider: ProviderName) =>
   Effect.gen(function* () {
     const configService = yield* FurlConfigService;
     const config = yield* configService.read;
     const order = yield* configService.resolveOrder;
     yield* configService.write({
-      order: withProviderFirst(order, provider),
+      order: insertProviderToken(order, provider),
       plugins: config.plugins,
     });
   });
 
 const setDefaultProvider = (provider: ProviderName) =>
   Effect.gen(function* () {
-    yield* putProviderFirst(provider);
+    yield* putProviderInOrder(provider);
     yield* Console.log(`${provider} is now your default provider.`);
   });
 
@@ -109,7 +104,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
         yield* Console.log(`Deleted ${provider} key.`);
 
         if (activeProvider === provider) {
-          yield* putProviderFirst('jina');
+          yield* putProviderInOrder('jina');
           yield* Console.log(
             'jina is now your default provider because the active provider key was deleted.',
           );
