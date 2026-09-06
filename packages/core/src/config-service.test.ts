@@ -65,20 +65,6 @@ describe('FurlConfigService', () => {
     ]);
   });
 
-  it('resolveOrder default excludes the API-key-backed builtins', async () => {
-    const order = await runWithConfig(
-      Effect.gen(function* () {
-        const config = yield* FurlConfigService;
-        return yield* config.resolveOrder;
-      }),
-    );
-
-    expect(order).not.toContain('default:jina');
-    expect(order).not.toContain('default:exa');
-    expect(order).not.toContain('default:firecrawl');
-    expect(order).not.toContain('default:*');
-  });
-
   it('an explicit order of ["*", "default:*"] restores all six builtins', async () => {
     writeConfig({ order: ['*', 'default:*'] });
 

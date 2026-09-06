@@ -50,7 +50,7 @@ export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFail
   url: Schema.String,
 }) {
   override get message(): string {
-    return `No resolver could produce markdown for ${this.url}. Try \`--plugin jina\` (keyless); \`exa\` and \`firecrawl\` also work with an API key.`;
+    return `No resolver could produce markdown for ${this.url}.`;
   }
 }
 

@@ -72,7 +72,7 @@ export interface FurlConfigServiceShape {
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
   ) => Effect.Effect<ProviderName, ConfigError>;
-  /** The resolver precedence chain, defaulting to `['*', 'default:raw', 'default:direct', 'default:md-suffix']`. */
+  /** The resolver precedence chain, defaulting to `defaultOrder`. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
   /** The args overlay for a plugin, or `false` if disabled, or `undefined` if absent. */
   pluginArgs: (
