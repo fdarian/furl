@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { Effect } from 'effect';
 
 import type { DiscoveredPlugin } from './discovery.ts';
@@ -215,5 +215,76 @@ describe('buildResolverList', () => {
     );
 
     expect(error._tag).toBe('ConfigError');
+  });
+
+  it("a plugin sharing a built-in's name coexists with it instead of shadowing it", async () => {
+    const plugin = makePlugin('jina', { hostname: 'x.com' });
+    const config = makeConfigStub({ order: ['*', 'default:*'] });
+
+    const result = await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, [plugin]),
+    );
+
+    const jinaEntries = result.filter((resolver) => resolver.id === 'jina');
+    expect(jinaEntries.map((resolver) => resolver.isDefault).sort()).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('a bare id naming an uninstalled plugin does not suppress the same-named built-in', async () => {
+    const config = makeConfigStub({ order: ['jina', 'default:*'] });
+    const spy = spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, []),
+    );
+
+    expect(result.map((resolver) => resolver.id)).toContain('jina');
+    expect(result.filter((resolver) => resolver.id === 'jina')).toHaveLength(1);
+    spy.mockRestore();
+  });
+
+  it('warns once on an order id token matching no installed plugin and no built-in', async () => {
+    const config = makeConfigStub({
+      order: ['typo-plugin', '*', 'default:*'],
+    });
+    const spy = spyOn(console, 'error').mockImplementation(() => {});
+
+    await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, []),
+    );
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0]?.[0])).toContain('typo-plugin');
+    spy.mockRestore();
+  });
+
+  it('does not warn on a bare id token that merely coincides with a built-in name', async () => {
+    const config = makeConfigStub({ order: ['jina', 'default:*'] });
+    const spy = spyOn(console, 'error').mockImplementation(() => {});
+
+    await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, []),
+    );
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('does not warn on a bare id token naming a plugin that is merely disabled', async () => {
+    const plugin = makePlugin('x', { hostname: 'x.com' });
+    const config = makeConfigStub({
+      order: ['x', '*', 'default:*'],
+      plugins: { x: false },
+    });
+    const spy = spyOn(console, 'error').mockImplementation(() => {});
+
+    await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, [plugin]),
+    );
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

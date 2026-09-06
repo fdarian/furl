@@ -131,6 +131,23 @@ describe('loadPluginManifest', () => {
     expect(String(error.cause)).toContain('reserved');
   });
 
+  it('rejects a manifest name matching a built-in resolver id', async () => {
+    const folder = path.join(tempDir, 'reserved-builtin');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'index.ts'), '');
+    const entrypoint = path.join(folder, 'index.ts');
+    const loader = makeLoaderStub({
+      [entrypoint]: { ...validManifest('placeholder'), name: 'jina' },
+    });
+
+    const error = await runWithFileSystem((fileSystem) =>
+      Effect.flip(loadPluginManifest(fileSystem, loader, folder)),
+    );
+
+    expect(error._tag).toBe('PluginLoadError');
+    expect(String(error.cause)).toContain('reserved');
+  });
+
   it('rejects a manifest missing a valid match.hostname', async () => {
     const folder = path.join(tempDir, 'no-match');
     fs.mkdirSync(folder, { recursive: true });
