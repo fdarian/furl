@@ -18,7 +18,11 @@ import {
 } from './plugin/discovery.ts';
 import { runResolvers } from './plugin/engine.ts';
 import { PluginLoaderLive } from './plugin/loader.ts';
-import { buildResolverList, toPluginResolver } from './plugin/order.ts';
+import {
+  buildResolverList,
+  filterEnabledPlugins,
+  toPluginResolver,
+} from './plugin/order.ts';
 import type { SecretsService } from './secrets-service.ts';
 import { Secrets, SecretsLive } from './secrets-service.ts';
 
@@ -62,7 +66,16 @@ const fetchMarkdown = (
     const defaultResolvers = createDefaultResolvers(client, secrets);
     const discoveredPlugins = options.pluginsDisabled
       ? []
-      : yield* discovery.discover;
+      : yield* Effect.gen(function* () {
+          const furlConfig = yield* config.read;
+          const disabledPluginNames = new Set(
+            Object.entries(furlConfig.plugins ?? {})
+              .filter(([, value]) => value === false)
+              .map(([pluginName]) => pluginName),
+          );
+
+          return yield* discovery.discoverEnabled(disabledPluginNames);
+        });
 
     const resolverList =
       options.forcedResolverId === undefined
@@ -73,12 +86,19 @@ const fetchMarkdown = (
             defaultResolvers,
             discoveredPlugins,
           )
-        : [
-            ...defaultResolvers,
-            ...discoveredPlugins.map((plugin) =>
-              toPluginResolver(secrets, config, plugin),
-            ),
-          ].filter((resolver) => resolver.id === options.forcedResolverId);
+        : yield* Effect.gen(function* () {
+            const enabledPlugins = yield* filterEnabledPlugins(
+              config,
+              discoveredPlugins,
+            );
+
+            return [
+              ...defaultResolvers,
+              ...enabledPlugins.map((plugin) =>
+                toPluginResolver(secrets, config, plugin),
+              ),
+            ].filter((resolver) => resolver.id === options.forcedResolverId);
+          });
 
     return yield* runResolvers(parsedUrl, resolverList);
   });

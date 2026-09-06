@@ -2,7 +2,12 @@ import { describe, expect, it, spyOn } from 'bun:test';
 import { Effect } from 'effect';
 
 import type { DiscoveredPlugin } from './discovery.ts';
-import { buildResolverList, matchesUrl, parseOrderToken } from './order.ts';
+import {
+  buildResolverList,
+  filterEnabledPlugins,
+  matchesUrl,
+  parseOrderToken,
+} from './order.ts';
 import { computeSpecificity } from './resolver.ts';
 import {
   makeConfigStub,
@@ -286,5 +291,33 @@ describe('buildResolverList', () => {
 
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe('filterEnabledPlugins', () => {
+  it('drops a plugin disabled via config', async () => {
+    const enabled = makePlugin('enabled-plugin', { hostname: 'x.com' });
+    const disabled = makePlugin('disabled-plugin', { hostname: 'x.com' });
+    const config = makeConfigStub({ plugins: { 'disabled-plugin': false } });
+
+    const result = await Effect.runPromise(
+      filterEnabledPlugins(config, [enabled, disabled]),
+    );
+
+    expect(result.map((plugin) => plugin.manifest.name)).toEqual([
+      'enabled-plugin',
+    ]);
+  });
+
+  it('keeps every plugin when none are disabled', async () => {
+    const first = makePlugin('a', { hostname: 'x.com' });
+    const second = makePlugin('b', { hostname: 'x.com' });
+    const config = makeConfigStub();
+
+    const result = await Effect.runPromise(
+      filterEnabledPlugins(config, [first, second]),
+    );
+
+    expect(result.map((plugin) => plugin.manifest.name)).toEqual(['a', 'b']);
   });
 });

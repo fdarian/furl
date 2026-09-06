@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem } from 'effect';
 
-import { loadPluginManifest } from './discovery.ts';
+import { discoverPlugins, loadPluginManifest } from './discovery.ts';
 import type { PluginLoaderShape } from './loader.ts';
 
 /**
@@ -183,5 +183,129 @@ describe('loadPluginManifest', () => {
 
     expect(error._tag).toBe('PluginLoadError');
     expect(String(error.cause)).toContain('match.path');
+  });
+});
+
+/**
+ * Exercises `discoverPlugins`'s disabled-before-import skip: a real
+ * `~/.config/furl/plugins` tree (`HOME` pointed at a disposable temp dir),
+ * and a `PluginLoader` stub that records every entrypoint it's asked to
+ * import — so a disabled folder never being imported is directly
+ * observable, not just inferred from the returned plugin list.
+ */
+describe('discoverPlugins', () => {
+  let tempHome: string;
+  let originalHome: string | undefined;
+
+  beforeEach(() => {
+    tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'furl-home-test-'));
+    originalHome = process.env.HOME;
+    process.env.HOME = tempHome;
+  });
+
+  afterEach(() => {
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+    fs.rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  const pluginsDir = () => path.join(tempHome, '.config', 'furl', 'plugins');
+
+  const writePluginFolder = (
+    folderName: string,
+    options: { packageJsonName?: string } = {},
+  ): string => {
+    const folder = path.join(pluginsDir(), folderName);
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'index.ts'), '');
+    if (options.packageJsonName !== undefined) {
+      fs.writeFileSync(
+        path.join(folder, 'package.json'),
+        JSON.stringify({ name: options.packageJsonName }),
+      );
+    }
+    return folder;
+  };
+
+  const makeRecordingLoader = (
+    manifestName: string,
+  ): { loader: PluginLoaderShape; loaded: string[] } => {
+    const loaded: string[] = [];
+    return {
+      loaded: loaded,
+      loader: {
+        load: (entrypointPath) => {
+          loaded.push(entrypointPath);
+          return Effect.succeed(validManifest(manifestName));
+        },
+      },
+    };
+  };
+
+  it('imports and returns an enabled plugin', async () => {
+    const folder = writePluginFolder('a');
+    const { loader, loaded } = makeRecordingLoader('a');
+
+    const plugins = await runWithFileSystem((fileSystem) =>
+      discoverPlugins(fileSystem, loader, new Set()),
+    );
+
+    expect(plugins.map((plugin) => plugin.name)).toEqual(['a']);
+    expect(loaded).toEqual([path.join(folder, 'index.ts')]);
+  });
+
+  it('skips a disabled folder without ever importing it', async () => {
+    writePluginFolder('blocked');
+    const { loader, loaded } = makeRecordingLoader('blocked');
+
+    const plugins = await runWithFileSystem((fileSystem) =>
+      discoverPlugins(fileSystem, loader, new Set(['blocked'])),
+    );
+
+    expect(plugins).toEqual([]);
+    expect(loaded).toEqual([]);
+  });
+
+  it('skips a disabled plugin identified by package.json#name even when the folder name differs', async () => {
+    writePluginFolder('github-alice-plugin', {
+      packageJsonName: 'alice-plugin',
+    });
+    const { loader, loaded } = makeRecordingLoader('alice-plugin');
+
+    const plugins = await runWithFileSystem((fileSystem) =>
+      discoverPlugins(fileSystem, loader, new Set(['alice-plugin'])),
+    );
+
+    expect(plugins).toEqual([]);
+    expect(loaded).toEqual([]);
+  });
+
+  it('still imports a plugin once when its disabled manifest name matches neither its folder nor package.json#name', async () => {
+    // Documents the known gap: `disabledPluginNames` is keyed by manifest
+    // name, which this discovery pass can't learn without importing.
+    writePluginFolder('github-alice-plugin', {
+      packageJsonName: 'alice-plugin',
+    });
+    const { loader, loaded } = makeRecordingLoader('totally-different-name');
+
+    const plugins = await runWithFileSystem((fileSystem) =>
+      discoverPlugins(fileSystem, loader, new Set(['totally-different-name'])),
+    );
+
+    expect(plugins.map((plugin) => plugin.name)).toEqual([
+      'totally-different-name',
+    ]);
+    expect(loaded).toHaveLength(1);
+  });
+
+  it('returns an empty list when the plugins directory does not exist', async () => {
+    const plugins = await runWithFileSystem((fileSystem) =>
+      discoverPlugins(fileSystem, makeLoaderStub({}), new Set()),
+    );
+
+    expect(plugins).toEqual([]);
   });
 });

@@ -204,12 +204,58 @@ export const loadPluginManifest = (
     };
   });
 
+/**
+ * Best-effort pre-import identity check for a plugin folder: its folder
+ * name, or its package.json `name` (read as plain data, same as
+ * `install.ts`'s installer-side check) — never its manifest `name`, since
+ * that's a value passed to `definePlugin` inside the entrypoint itself and
+ * is only known once that module has already run. `disabledPluginNames` is
+ * keyed by manifest name (see `FurlConfigServiceShape.isPluginDisabled`), so
+ * this only catches a disabled plugin whose on-disk names happen to match
+ * it — the common case for a hand-authored plugin (folder named after
+ * itself) or a git-installed one whose package.json `name` mirrors its
+ * manifest `name`. A plugin disabled under a name that matches neither
+ * still gets imported once; `buildResolverList` (see `plugin/order.ts`) is
+ * what excludes it from the resolution chain in that case.
+ */
+const isDisabledBeforeImport = (
+  fileSystem: FileSystem.FileSystem,
+  folderName: string,
+  folderPath: string,
+  disabledPluginNames: ReadonlySet<string>,
+): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    if (disabledPluginNames.size === 0) {
+      return false;
+    }
+
+    if (disabledPluginNames.has(folderName)) {
+      return true;
+    }
+
+    const packageJsonPath = `${folderPath}/${packageJsonFileName}`;
+    const packageJsonExists = yield* fileSystem.exists(packageJsonPath);
+
+    if (!packageJsonExists) {
+      return false;
+    }
+
+    const rawPackageJson = yield* fileSystem.readFileString(packageJsonPath);
+    const parsedPackageJson = JSON.parse(rawPackageJson) as { name?: unknown };
+
+    return (
+      typeof parsedPackageJson.name === 'string' &&
+      disabledPluginNames.has(parsedPackageJson.name)
+    );
+  }).pipe(Effect.orElseSucceed(() => false));
+
 /** Loads a single plugin folder; on any failure, warns to stderr and yields `None` instead of aborting discovery. */
 const discoverPluginFolder = (
   fileSystem: FileSystem.FileSystem,
   loader: PluginLoaderShape,
   pluginsDirectory: string,
   folderName: string,
+  disabledPluginNames: ReadonlySet<string>,
 ): Effect.Effect<Option.Option<DiscoveredPlugin>> =>
   Effect.gen(function* () {
     const folderPath = `${pluginsDirectory}/${folderName}`;
@@ -222,6 +268,17 @@ const discoverPluginFolder = (
       );
 
     if (info.type !== 'Directory') {
+      return Option.none<DiscoveredPlugin>();
+    }
+
+    const disabled = yield* isDisabledBeforeImport(
+      fileSystem,
+      folderName,
+      folderPath,
+      disabledPluginNames,
+    );
+
+    if (disabled) {
       return Option.none<DiscoveredPlugin>();
     }
 
@@ -259,9 +316,17 @@ const dedupeByName = (
     return Array.from(seen.values());
   });
 
-const discoverPlugins = (
+/** No folder is treated as pre-emptively disabled — the plain scan `discover` uses. */
+const noDisabledPluginNames: ReadonlySet<string> = new Set();
+
+/**
+ * Scans the plugins directory, skipping any folder `isDisabledBeforeImport`
+ * can identify as disabled before its entrypoint is ever loaded.
+ */
+export const discoverPlugins = (
   fileSystem: FileSystem.FileSystem,
   loader: PluginLoaderShape,
+  disabledPluginNames: ReadonlySet<string>,
 ): Effect.Effect<DiscoveredPlugin[], PluginLoadError> =>
   Effect.gen(function* () {
     const pluginsDirectory = yield* getPluginsDirectoryPath.pipe(
@@ -293,7 +358,13 @@ const discoverPlugins = (
       );
 
     const discovered = yield* Effect.forEach(entries, (folderName) =>
-      discoverPluginFolder(fileSystem, loader, pluginsDirectory, folderName),
+      discoverPluginFolder(
+        fileSystem,
+        loader,
+        pluginsDirectory,
+        folderName,
+        disabledPluginNames,
+      ),
     );
 
     const plugins = discovered
@@ -304,8 +375,23 @@ const discoverPlugins = (
   });
 
 export type PluginDiscoveryShape = {
-  /** Scans `~/.config/furl/plugins/` and returns every valid, uniquely-named plugin found. */
+  /**
+   * Scans `~/.config/furl/plugins/` and returns every valid, uniquely-named
+   * plugin found, regardless of disabled status. Used by management
+   * commands (`furl plugins ...`) that need to show and toggle a disabled
+   * plugin, not just the resolution path — those still import a disabled
+   * plugin's entrypoint to learn its manifest name, same as before.
+   */
   discover: Effect.Effect<DiscoveredPlugin[], PluginLoadError>;
+  /**
+   * Same as `discover`, but skips a folder `isDisabledBeforeImport` can
+   * identify as disabled before importing it. Used by the resolution path
+   * (`fetch-markdown.ts`), where running a disabled plugin's code at all —
+   * not just excluding it from the chain — is the bug being fixed.
+   */
+  discoverEnabled: (
+    disabledPluginNames: ReadonlySet<string>,
+  ) => Effect.Effect<DiscoveredPlugin[], PluginLoadError>;
 };
 
 export class PluginDiscovery extends Context.Service<
@@ -320,7 +406,9 @@ export const PluginDiscoveryLive = Layer.effect(
     const loader = yield* PluginLoader;
 
     return {
-      discover: discoverPlugins(fileSystem, loader),
+      discover: discoverPlugins(fileSystem, loader, noDisabledPluginNames),
+      discoverEnabled: (disabledPluginNames: ReadonlySet<string>) =>
+        discoverPlugins(fileSystem, loader, disabledPluginNames),
     };
   }),
 );

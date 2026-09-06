@@ -162,6 +162,21 @@ export const toPluginResolver = (
 });
 
 /**
+ * Drops plugins disabled via config — used both by `buildResolverList`'s
+ * `order`-driven chain and by a forced `--plugin`/`--provider` resolution,
+ * so disabling a plugin always wins even when it's named explicitly.
+ */
+export const filterEnabledPlugins = (
+  configService: FurlConfigServiceShape,
+  discoveredPlugins: readonly DiscoveredPlugin[],
+): Effect.Effect<DiscoveredPlugin[], ConfigError> =>
+  Effect.filter(discoveredPlugins, (plugin) =>
+    configService
+      .isPluginDisabled(plugin.manifest.name)
+      .pipe(Effect.map((disabled) => !disabled)),
+  );
+
+/**
  * Identifies a resolver across both namespaces a bare id could otherwise
  * collide on: a plugin and a built-in may legitimately share an `id`
  * string (see `parseOrderToken`), so bookkeeping keyed on the bare `id`
@@ -188,10 +203,9 @@ export const buildResolverList = (
     const orderTokens = yield* configService.resolveOrder;
     const parsedTokens = yield* Effect.forEach(orderTokens, parseOrderToken);
 
-    const enabledPlugins = yield* Effect.filter(discoveredPlugins, (plugin) =>
-      configService
-        .isPluginDisabled(plugin.manifest.name)
-        .pipe(Effect.map((disabled) => !disabled)),
+    const enabledPlugins = yield* filterEnabledPlugins(
+      configService,
+      discoveredPlugins,
     );
 
     const pluginResolvers = enabledPlugins.map((plugin) =>
