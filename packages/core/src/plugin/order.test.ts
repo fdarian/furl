@@ -148,6 +148,39 @@ describe('buildResolverList', () => {
     ]);
   });
 
+  it('the default order excludes the API-key-backed builtins (jina/exa/firecrawl)', async () => {
+    const config = makeConfigStub({
+      order: ['*', 'default:raw', 'default:direct', 'default:md-suffix'],
+    });
+
+    const result = await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, []),
+    );
+
+    expect(result.map((resolver) => resolver.id)).toEqual([
+      'raw',
+      'direct',
+      'md-suffix',
+    ]);
+  });
+
+  it('an explicit "default:*" still expands to all six built-ins, in canonical order', async () => {
+    const config = makeConfigStub({ order: ['default:*'] });
+
+    const result = await Effect.runPromise(
+      buildResolverList(config, secrets, url, defaultResolvers, []),
+    );
+
+    expect(result.map((resolver) => resolver.id)).toEqual([
+      'raw',
+      'direct',
+      'md-suffix',
+      'jina',
+      'exa',
+      'firecrawl',
+    ]);
+  });
+
   it('skips a plugin disabled via config even when named explicitly', async () => {
     const plugin = makePlugin('x', { hostname: 'x.com' });
     const config = makeConfigStub({

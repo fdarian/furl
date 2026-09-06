@@ -44,7 +44,14 @@ export const makeConfigStub = (
 ): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: options.order, plugins: options.plugins }),
   resolveProvider: () => Effect.succeed('jina'),
-  resolveOrder: Effect.succeed(options.order ?? ['*', 'default:*']),
+  resolveOrder: Effect.succeed(
+    options.order ?? [
+      '*',
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
+    ],
+  ),
   pluginArgs: (id) => Effect.succeed(options.plugins?.[id]),
   isPluginDisabled: (id) => Effect.succeed(options.plugins?.[id] === false),
   write: () => Effect.succeed(undefined),
