@@ -48,9 +48,24 @@ export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFail
   'furl/AllResolversFailed',
 )('AllResolversFailed', {
   url: Schema.String,
+  /** Every resolver that was tried and declined or errored, in chain order — the structured reason a library consumer branches on instead of parsing stderr. */
+  failures: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      cause: Schema.Defect(),
+    }),
+  ),
 }) {
   override get message(): string {
-    return `No resolver could produce markdown for ${this.url}.`;
+    if (this.failures.length === 0) {
+      return `No resolver could produce markdown for ${this.url}.`;
+    }
+
+    const summary = this.failures
+      .map((failure) => `${failure.id} (${describeCause(failure.cause)})`)
+      .join(', ');
+
+    return `No resolver could produce markdown for ${this.url}. Tried: ${summary}.`;
   }
 }
 
