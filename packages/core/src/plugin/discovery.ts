@@ -140,7 +140,10 @@ const validateManifest = (
       );
     }
 
-    const match = manifest.match as { hostname?: unknown } | null | undefined;
+    const match = manifest.match as
+      | { hostname?: unknown; path?: unknown }
+      | null
+      | undefined;
 
     if (
       typeof match !== 'object' ||
@@ -153,6 +156,15 @@ const validateManifest = (
           cause: new Error(
             'Plugin manifest is missing a valid "match.hostname"',
           ),
+        }),
+      );
+    }
+
+    if (match.path !== undefined && typeof match.path !== 'string') {
+      return yield* Effect.fail(
+        new PluginLoadError({
+          path: entrypointPath,
+          cause: new Error('Plugin manifest has an invalid "match.path"'),
         }),
       );
     }

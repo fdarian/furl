@@ -147,4 +147,24 @@ describe('loadPluginManifest', () => {
     expect(error._tag).toBe('PluginLoadError');
     expect(String(error.cause)).toContain('match.hostname');
   });
+
+  it('rejects a manifest with a non-string match.path', async () => {
+    const folder = path.join(tempDir, 'bad-path');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'index.ts'), '');
+    const entrypoint = path.join(folder, 'index.ts');
+    const loader = makeLoaderStub({
+      [entrypoint]: {
+        ...validManifest('bad-path'),
+        match: { hostname: 'bad-path.example.com', path: 123 },
+      },
+    });
+
+    const error = await runWithFileSystem((fileSystem) =>
+      Effect.flip(loadPluginManifest(fileSystem, loader, folder)),
+    );
+
+    expect(error._tag).toBe('PluginLoadError');
+    expect(String(error.cause)).toContain('match.path');
+  });
 });
