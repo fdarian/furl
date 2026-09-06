@@ -46,7 +46,7 @@ If `exa` or `firecrawl` has no configured key, the CLI fails with a typed `NoPro
 - `Set as default` switches the active provider without re-entering a key
 - Deleting the key for the current default resets the default back to `jina`
 
-That "default provider" is cosmetic for `furl providers`' own menu — it does **not** change which resolver furl tries first. jina/exa/firecrawl are now `default:` built-in resolvers (see [jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)) tried in furl's fixed `default:*` order (`raw`, `direct`, `md-suffix`, `jina`, `exa`, `firecrawl`). To change that precedence, use the `order` config key (e.g. `["default:exa", "*", "default:*"]`) — see [Overview](/plugins/overview).
+That "default provider" is cosmetic for `furl providers`' own menu — it does **not** change which resolver furl tries first. jina/exa/firecrawl are `default:` built-in resolvers (see [jina](/plugins/builtins/jina), [exa](/plugins/builtins/exa), [firecrawl](/plugins/builtins/firecrawl)), but they're opt-in: furl's default `order` only runs `raw` → `direct` → `md-suffix`. Add `default:jina` (or `default:*` for furl's full canonical order — `raw`, `direct`, `md-suffix`, `jina`, `exa`, `firecrawl`) to the `order` config, or pass `--plugin jina` for one call — see [Overview](/plugins/overview).
 
 - `-p/--provider` (deprecated) forces that single resolver directly for one invocation, the same as `--plugin <name>` (e.g. `--plugin jina`) — it skips the `raw`/`direct`/`md-suffix` probes entirely, not just the final fallback step. Prefer `--plugin` or the config `order` key.
 

@@ -1,8 +1,8 @@
 # How It Works
 
-`furl` resolves markdown by running an ordered list of **resolvers** implemented in `packages/core`. By default that list is furl's six built-in strategies, tried in this fixed order:
+`furl` resolves markdown by running an ordered list of **resolvers** implemented in `packages/core`. By default that list is three cheap, keyless probes, tried in this fixed order:
 
-## Fallback chain
+## Default chain
 
 1. Extension passthrough
 
@@ -16,13 +16,17 @@ For non-file URLs, `furl` sends a `GET` with `Accept: text/markdown`. If the res
 
 If the direct fetch does not return markdown, `furl` retries the same URL with `.md` appended before any query string. A successful markdown response reports `md-suffix`.
 
-4. Provider fallback
+If all three decline, `furl` fails rather than reaching for a provider — see [Opt-in providers](#opt-in-providers).
 
-If all three probes above decline, `furl` falls through to the provider builtins, in order:
+## Opt-in providers
 
-- `jina`
-- `exa`
-- `firecrawl`
+`jina`, `exa`, and `firecrawl` extract markdown through a third-party API, so they aren't part of the default chain. Add `default:jina` (or `default:*` for all six built-ins) to your config `order`, or pass `--plugin jina` for a single call:
+
+```bash
+furl https://example.com --plugin jina
+```
+
+`jina` works without an API key; `exa` and `firecrawl` need one (see [Providers](/providers)).
 
 ## Source labels
 
@@ -39,10 +43,6 @@ The CLI writes the markdown body to stdout and a one-line diagnostic to stderr, 
 
 A plugin that resolves the URL reports its own manifest `name` instead (e.g. `↳ via x`).
 
-## Default behavior
-
-`jina` is the first provider builtin tried, and it works without an API key by routing requests through `https://r.jina.ai/<url>`.
-
 ## Plugins
 
-This fixed chain is exactly what the plugin system extends. Each stage above is a `default:` built-in (`default:raw`, `default:direct`, `default:md-suffix`, `default:jina`/`default:exa`/`default:firecrawl`, detailed in [Builtins](/plugins/builtins/fetch-strategies)) that can be named in the `order` config; plugins run ahead of them to handle sites the generic chain can't, like client-rendered pages. See [Plugins](/plugins/overview) for the resolution algorithm.
+The default chain and the opt-in providers above are exactly what the plugin system extends. Each stage is a `default:` built-in (`default:raw`, `default:direct`, `default:md-suffix`, `default:jina`/`default:exa`/`default:firecrawl`, detailed in [Builtins](/plugins/builtins/fetch-strategies)) that can be named in the `order` config; plugins run ahead of them to handle sites the generic chain can't, like client-rendered pages. See [Plugins](/plugins/overview) for the resolution algorithm.

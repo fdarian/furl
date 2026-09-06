@@ -14,4 +14,4 @@ bun install
 bun run apps/cli/src/main.ts https://vercel.com/blog
 ```
 
-If the target already exposes markdown, `furl` returns it directly. Otherwise it falls back through `.md` discovery and then a provider-backed markdown extraction flow.
+If the target already exposes markdown, `furl` returns it directly; otherwise it retries with `.md` appended. For sites that need more than that, opt into a provider like `jina` with `--plugin jina` — see [How It Works](/how-it-works).

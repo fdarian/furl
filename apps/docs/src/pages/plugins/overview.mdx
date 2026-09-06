@@ -13,7 +13,7 @@ The chain itself is controlled by an `order` array of tokens:
 - `default:<name>` — a specific built-in strategy (see [Builtins](/plugins/builtins/fetch-strategies)).
 - `default:*` — every built-in not named elsewhere, in furl's own canonical order.
 
-When `order` is unset, it defaults to `['*', 'default:*']` — try matching plugins first, then fall through to furl's built-in pipeline.
+When `order` is unset, it defaults to `['*', 'default:raw', 'default:direct', 'default:md-suffix']` — try matching plugins first, then furl's three keyless probes. `jina`, `exa`, and `firecrawl` call a third-party API, so they're opt-in: add `default:jina` (or `default:*` for all six built-ins) to `order`, or pass `--plugin jina` for a single call.
 
 ## Resolution behavior
 

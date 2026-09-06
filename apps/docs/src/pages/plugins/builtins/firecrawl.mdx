@@ -3,6 +3,7 @@
 `default:firecrawl` sends `POST https://api.firecrawl.dev/v1/scrape` with `Authorization: Bearer <key>`, requesting `formats: ['markdown']`. Returns structured markdown at `data.markdown`.
 
 - Requires a configured key — declines without one.
+- Opt-in: not part of furl's default `order`. Once a key is configured, enable it with `default:firecrawl` (or `default:*`) in config, or `--plugin firecrawl` for one call.
 - Last provider builtin in furl's canonical `default:*` order, after [exa](/plugins/builtins/exa).
 
 See [Providers](/providers) for how to set a `FIRECRAWL_API_KEY` or store a key today.

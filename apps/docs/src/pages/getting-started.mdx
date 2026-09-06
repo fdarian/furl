@@ -28,10 +28,12 @@ bun run apps/cli/src/main.ts providers
 
 That interactive flow stores keys in the OS keychain through `Bun.secrets`.
 
-## Override the provider
+## Fetch a page that needs a provider
 
-The default provider is `jina`. You can force a paid provider for a single request:
+By default `furl` only tries the raw/direct/`.md` probes above and stops — it doesn't call a third-party provider unless you ask. Add `--plugin <name>` to opt one in for a single request:
 
 ```bash
-bun run apps/cli/src/main.ts https://example.com --provider exa
+bun run apps/cli/src/main.ts https://example.com --plugin jina
 ```
+
+`jina` works without an API key; `exa` and `firecrawl` need one — see [Providers](/providers).
