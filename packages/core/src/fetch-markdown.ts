@@ -7,6 +7,7 @@ import type {
   AllResolversFailed,
   ConfigError,
   PluginLoadError,
+  ResolverError,
 } from './errors.ts';
 import { FetchError } from './errors.ts';
 import { createDefaultResolvers } from './plugin/default/index.ts';
@@ -45,7 +46,11 @@ const fetchMarkdown = (
   options: FetchOptions,
 ): Effect.Effect<
   FetchResult,
-  ConfigError | FetchError | PluginLoadError | AllResolversFailed
+  | ConfigError
+  | FetchError
+  | PluginLoadError
+  | AllResolversFailed
+  | ResolverError
 > =>
   Effect.gen(function* () {
     const parsedUrl = yield* Effect.try({
@@ -111,4 +116,5 @@ export type FurlError =
   | AllResolversFailed
   | ConfigError
   | FetchError
-  | PluginLoadError;
+  | PluginLoadError
+  | ResolverError;

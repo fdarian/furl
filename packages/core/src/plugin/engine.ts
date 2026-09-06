@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 
-import { AllResolversFailed } from '../errors.ts';
+import { AllResolversFailed, type ResolverError } from '../errors.ts';
 
 import type { Resolver } from './resolver.ts';
 import { ResolveDecline } from './types.ts';
@@ -24,16 +24,19 @@ const redactUserinfo = (url: URL): string => {
 
 /**
  * Runs `resolvers` in order: a decline moves on silently; a `ResolverError`
- * is recorded (not printed) and treated as a decline; a success returns
- * immediately. If every resolver declines or errors, fails with
- * `AllResolversFailed`, carrying every resolver's recorded cause so a
- * caller can distinguish, say, a missing API key from a network failure
+ * (a resolver with no definitive claim on the URL) is recorded and treated
+ * as a decline; a `ResolveFailure` (a resolver that definitively claimed the
+ * URL and then failed, e.g. `raw`) aborts the chain immediately, surfacing
+ * its own cause instead of falling through to a lower-priority resolver; a
+ * success returns immediately. If every resolver declines or non-terminally
+ * errors, fails with `AllResolversFailed`, carrying every recorded cause so
+ * a caller can distinguish, say, a missing API key from a network failure
  * instead of only seeing "no resolver could produce markdown".
  */
 export const runResolvers = (
   url: URL,
   resolvers: readonly Resolver[],
-): Effect.Effect<ResolutionResult, AllResolversFailed> =>
+): Effect.Effect<ResolutionResult, AllResolversFailed | ResolverError> =>
   Effect.gen(function* () {
     const failures: { id: string; cause: unknown }[] = [];
 
@@ -47,6 +50,10 @@ export const runResolvers = (
 
       if (outcome._tag === 'success') {
         return { markdown: outcome.markdown, source: resolver.id };
+      }
+
+      if (outcome._tag === 'failure') {
+        return yield* Effect.fail(outcome.error);
       }
     }
 

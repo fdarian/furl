@@ -1,5 +1,7 @@
 import { Data } from 'effect';
 
+import type { ResolverError } from '../errors.ts';
+
 /** Declarative host/path matcher used to rank and route plugins for a URL. */
 export type MatchPattern = {
   hostname: string;
@@ -51,4 +53,16 @@ export class ResolveSuccess extends Data.TaggedClass('success')<{
 /** A resolver declined to handle the URL. */
 export class ResolveDecline extends Data.TaggedClass('decline') {}
 
-export type ResolveOutcome = ResolveSuccess | ResolveDecline;
+/**
+ * A resolver definitively claimed the URL (e.g. `raw`'s file-extension
+ * match) and then failed to produce markdown for it. Unlike `ResolveDecline`,
+ * this must abort the resolution chain instead of falling through to a
+ * lower-priority resolver — falling through here would silently retry a URL
+ * a resolver has already proven it owns, e.g. burning a paid provider's
+ * quota scraping a URL that 404s by file extension alone.
+ */
+export class ResolveFailure extends Data.TaggedClass('failure')<{
+  error: ResolverError;
+}> {}
+
+export type ResolveOutcome = ResolveSuccess | ResolveDecline | ResolveFailure;

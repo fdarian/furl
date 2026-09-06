@@ -42,7 +42,11 @@ export class ResolverError extends Schema.TaggedErrorClass<ResolverError>(
 )('ResolverError', {
   id: Schema.String,
   cause: Schema.Defect(),
-}) {}
+}) {
+  override get message(): string {
+    return `Resolver "${this.id}" failed: ${describeCause(this.cause)}`;
+  }
+}
 
 export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFailed>(
   'furl/AllResolversFailed',

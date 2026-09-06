@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
 
 import { makeHttpClientStub, makeSecretsStub } from '../test-doubles.ts';
-import { ResolveDecline, ResolveSuccess } from '../types.ts';
+import { ResolveDecline, ResolveFailure, ResolveSuccess } from '../types.ts';
 
 import { createDefaultResolvers } from './index.ts';
 
@@ -46,19 +46,20 @@ describe('raw', () => {
     expect(outcome).toEqual(new ResolveSuccess({ markdown: '# raw body' }));
   });
 
-  it('errors when the fetch fails', async () => {
+  it('aborts (does not decline) when the fetch fails, surfacing its own cause', async () => {
     const client = makeHttpClientStub(
       () => new Response('nope', { status: 500 }),
     );
     const resolvers = createDefaultResolvers(client, makeSecretsStub());
     const raw = findResolver(resolvers, 'raw');
 
-    const error = await Effect.runPromise(
-      Effect.flip(raw.run(new URL('https://example.com/file.md'))),
+    const outcome = await Effect.runPromise(
+      raw.run(new URL('https://example.com/file.md')),
     );
 
-    expect(error._tag).toBe('ResolverError');
-    expect(error.id).toBe('raw');
+    expect(outcome).toBeInstanceOf(ResolveFailure);
+    expect((outcome as ResolveFailure).error._tag).toBe('ResolverError');
+    expect((outcome as ResolveFailure).error.id).toBe('raw');
   });
 });
 

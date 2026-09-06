@@ -6,9 +6,13 @@ import type { MatchPattern, ResolveOutcome } from './types.ts';
 /**
  * A single entry in the resolution chain — either a built-in `default:`
  * strategy or a discovered plugin, normalized to the same shape so the
- * engine's try-chain can run them uniformly. Decline/success travel on the
- * success channel (`ResolveOutcome`); genuine failures travel on the Effect
- * error channel as `ResolverError`.
+ * engine's try-chain can run them uniformly. Decline, success, and terminal
+ * failure (`ResolveFailure`, for a resolver that definitively claimed the
+ * URL and then failed) all travel on the success channel (`ResolveOutcome`).
+ * A resolver with no definitive claim on the URL — an opportunistic
+ * fallback, e.g. a paid-provider default — instead fails on the Effect
+ * error channel as `ResolverError`, which the engine records and treats
+ * like a decline.
  */
 export type Resolver = {
   id: string;
