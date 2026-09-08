@@ -31,8 +31,6 @@ If the direct fetch doesn't return markdown, furl retries the same URL with `.md
 
 ::::
 
-[Plugins](/plugins/overview) share this same chain — name one ahead of `default:*` in `order` and it gets first look at the URL.
-
 ### Further reading
 
 :::details[Knowing what was used]
@@ -56,7 +54,7 @@ That line goes to stderr, so it never ends up in a file or a pipe:
 ```
 :::
 
-:::details[Configuration]
+:::details[Configuring the order]
 
 Every resolver can be customized: reorder them, remove them, or add your own through [plugins](/plugins/overview).
 
@@ -67,7 +65,7 @@ Here's the default:
 }
 ```
 
-`default:*` expands to the three probes above, in that order. It doesn't cover jina, exa, or firecrawl — those call a third-party API, so you name them explicitly.
+`default:*` expands to the three probes above, in that order. Or you can specify them individually (e.g. `default:raw` and `default:md-suffix`)
 :::
 
 ## Additional resolvers
