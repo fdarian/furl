@@ -1,18 +1,21 @@
 import { Context, Effect, Layer, Option } from 'effect';
-import { HttpClient, HttpClientRequest } from 'effect/unstable/http';
+import { HttpClient } from 'effect/unstable/http';
+
 import type { FurlConfigServiceShape } from './config-service.ts';
 import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
 import {
+  AllResolversFailed,
   type ConfigError,
   FetchError,
-  type KeychainError,
-  type NoProviderKey,
-  type ProviderError,
+  KeychainError,
+  NoProviderKey,
+  ProviderError,
+  ResolverError,
 } from './errors.ts';
+import { createDefaultResolvers } from './plugin/default/index.ts';
+import { type ResolutionResult, runResolvers } from './plugin/engine.ts';
+import type { Resolver } from './plugin/resolver.ts';
 import type { ProviderName } from './provider-name.ts';
-import { fetchWithExa } from './providers/exa.ts';
-import { fetchWithFirecrawl } from './providers/firecrawl.ts';
-import { fetchWithJina } from './providers/jina.ts';
 import type { SecretsService } from './secrets-service.ts';
 import { Secrets, SecretsLive } from './secrets-service.ts';
 
@@ -27,185 +30,94 @@ export type FetchResult = {
     | 'provider:firecrawl';
 };
 
-const fileExtensionPattern = /\.[a-z0-9]+$/i;
+export type FurlError =
+  | AllResolversFailed
+  | ConfigError
+  | FetchError
+  | KeychainError
+  | NoProviderKey
+  | ProviderError
+  | ResolverError;
 
-const responseIsMarkdown = (contentType: string | undefined): boolean => {
-  if (contentType === undefined) {
-    return false;
+type HttpClientService = Context.Service.Shape<typeof HttpClient.HttpClient>;
+
+const isProbeResolver = (resolver: Resolver): boolean =>
+  resolver.id === 'raw' ||
+  resolver.id === 'direct' ||
+  resolver.id === 'md-suffix';
+
+const unwrapResolverFailure = (
+  error: ResolverError | AllResolversFailed,
+): FurlError => {
+  const cause =
+    error instanceof ResolverError
+      ? error.cause
+      : error.failures.length === 1
+        ? error.failures[0]?.cause
+        : undefined;
+
+  if (cause instanceof ResolverError || cause instanceof AllResolversFailed) {
+    return unwrapResolverFailure(cause);
   }
 
-  return contentType.toLowerCase().includes('markdown');
-};
-
-const appendMarkdownSuffix = (url: string): string => {
-  const parsedUrl = new URL(url);
-  parsedUrl.pathname = `${parsedUrl.pathname}.md`;
-  return parsedUrl.toString();
-};
-
-const fetchRawBody = (
-  client: Context.Service.Shape<typeof HttpClient.HttpClient>,
-  url: string,
-) =>
-  Effect.gen(function* () {
-    const response = yield* HttpClientRequest.get(url).pipe(
-      client.execute,
-      Effect.mapError(
-        (cause) =>
-          new FetchError({ url: url, status: undefined, cause: cause }),
-      ),
-    );
-
-    if (response.status < 200 || response.status >= 300) {
-      return yield* Effect.fail(
-        new FetchError({
-          url: url,
-          status: response.status,
-          cause: new Error(`Unexpected status ${response.status}`),
-        }),
-      );
-    }
-
-    const body = yield* response.text.pipe(
-      Effect.mapError(
-        (cause) =>
-          new FetchError({ url: url, status: response.status, cause: cause }),
-      ),
-    );
-
-    return {
-      markdown: body,
-      source: 'raw',
-    } satisfies FetchResult;
-  });
-
-const tryDirectMarkdownFetch = (
-  client: Context.Service.Shape<typeof HttpClient.HttpClient>,
-  url: string,
-  source: 'direct' | 'md-suffix',
-) =>
-  Effect.gen(function* () {
-    const response = yield* HttpClientRequest.get(url).pipe(
-      HttpClientRequest.setHeader('Accept', 'text/markdown'),
-      client.execute,
-      Effect.mapError(
-        (cause) =>
-          new FetchError({ url: url, status: undefined, cause: cause }),
-      ),
-    );
-
-    if (response.status < 200 || response.status >= 300) {
-      return Option.none<FetchResult>();
-    }
-
-    const contentType = response.headers['content-type'];
-
-    if (!responseIsMarkdown(contentType)) {
-      return Option.none<FetchResult>();
-    }
-
-    const body = yield* response.text.pipe(
-      Effect.mapError(
-        (cause) =>
-          new FetchError({ url: url, status: response.status, cause: cause }),
-      ),
-    );
-
-    return Option.some({
-      markdown: body,
-      source: source,
-    } satisfies FetchResult);
-  }).pipe(
-    Effect.catchTag('FetchError', () =>
-      Effect.succeed(Option.none<FetchResult>()),
-    ),
-  );
-
-const fetchWithProvider = (
-  client: Context.Service.Shape<typeof HttpClient.HttpClient>,
-  secrets: SecretsService,
-  provider: ProviderName,
-  url: string,
-) => {
-  if (provider === 'exa') {
-    return fetchWithExa(client, secrets, url).pipe(
-      Effect.map((markdown) => ({
-        markdown: markdown,
-        source: 'provider:exa' as const,
-      })),
-    );
+  if (
+    cause instanceof FetchError ||
+    cause instanceof KeychainError ||
+    cause instanceof NoProviderKey ||
+    cause instanceof ProviderError
+  ) {
+    return cause;
   }
 
-  if (provider === 'firecrawl') {
-    return fetchWithFirecrawl(client, secrets, url).pipe(
-      Effect.map((markdown) => ({
-        markdown: markdown,
-        source: 'provider:firecrawl' as const,
-      })),
-    );
-  }
-
-  return fetchWithJina(client, secrets, url).pipe(
-    Effect.map((markdown) => ({
-      markdown: markdown,
-      source: 'provider:jina' as const,
-    })),
-  );
+  return error;
 };
+
+const toFetchResult = (result: ResolutionResult): FetchResult => ({
+  markdown: result.markdown,
+  source: result.source as FetchResult['source'],
+});
 
 const fetchMarkdown = (
-  client: Context.Service.Shape<typeof HttpClient.HttpClient>,
+  client: HttpClientService,
   config: FurlConfigServiceShape,
   secrets: SecretsService,
   url: string,
   providerOverride: Option.Option<ProviderName>,
-) =>
+): Effect.Effect<FetchResult, FurlError> =>
   Effect.gen(function* () {
     const parsedUrl = yield* Effect.try({
       try: () => new URL(url),
       catch: (cause) =>
-        new FetchError({
-          url: url,
-          status: undefined,
-          cause: cause,
-        }),
+        new FetchError({ url: url, status: undefined, cause: cause }),
     });
-    const pathnameSegments = parsedUrl.pathname.split('/');
-    const lastPathSegment = pathnameSegments[pathnameSegments.length - 1];
-
-    if (lastPathSegment === undefined) {
-      return yield* Effect.fail(
-        new FetchError({
-          url: url,
-          status: undefined,
-          cause: new Error('Unable to resolve URL pathname'),
-        }),
-      );
-    }
-
-    if (fileExtensionPattern.test(lastPathSegment)) {
-      return yield* fetchRawBody(client, url);
-    }
-
-    const directFetch = yield* tryDirectMarkdownFetch(client, url, 'direct');
-
-    if (Option.isSome(directFetch)) {
-      return directFetch.value;
-    }
-
-    const markdownUrl = appendMarkdownSuffix(url);
-    const markdownFetch = yield* tryDirectMarkdownFetch(
-      client,
-      markdownUrl,
-      'md-suffix',
+    const defaultResolvers = createDefaultResolvers(client, secrets);
+    const probeResolvers = defaultResolvers.filter(isProbeResolver);
+    const probeResult = yield* runResolvers(parsedUrl, probeResolvers).pipe(
+      Effect.map(Option.some),
+      Effect.catchTag('AllResolversFailed', () =>
+        Effect.succeed(Option.none<ResolutionResult>()),
+      ),
+      Effect.mapError(unwrapResolverFailure),
     );
 
-    if (Option.isSome(markdownFetch)) {
-      return markdownFetch.value;
+    if (Option.isSome(probeResult)) {
+      return toFetchResult(probeResult.value);
     }
 
     const provider = yield* config.resolveProvider(providerOverride);
-    return yield* fetchWithProvider(client, secrets, provider, url);
+    const providerResolver = defaultResolvers.find(
+      (candidate) => candidate.id === provider,
+    );
+    if (providerResolver === undefined) {
+      return yield* Effect.die(
+        new Error(`No default resolver found for provider "${provider}"`),
+      );
+    }
+
+    return yield* runResolvers(parsedUrl, [providerResolver]).pipe(
+      Effect.map(toFetchResult),
+      Effect.mapError(unwrapResolverFailure),
+    );
   });
 
 export class Furl extends Context.Service<
@@ -234,10 +146,3 @@ export const FurlLive = Layer.effect(
     };
   }),
 ).pipe(Layer.provide(SecretsLive), Layer.provide(FurlConfigServiceLive));
-
-export type FurlError =
-  | ConfigError
-  | FetchError
-  | KeychainError
-  | NoProviderKey
-  | ProviderError;
