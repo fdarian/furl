@@ -1,16 +1,12 @@
-import {
-  Console,
-  Context,
-  Effect,
-  FileSystem,
-  Layer,
-  Option,
-  Schema,
-} from 'effect';
+import { Context, Effect, FileSystem, Layer, Option, Schema } from 'effect';
 
 import { ConfigError } from './errors.ts';
-import type { ProviderName } from './provider-name.ts';
-import { providerSchema } from './provider-name.ts';
+import { insertProviderToken, providerOrderToken } from './plugin/order.ts';
+import {
+  type ProviderName,
+  providerNames,
+  providerSchema,
+} from './provider-name.ts';
 
 const pluginConfigValueSchema = Schema.Record(Schema.String, Schema.Unknown);
 
@@ -32,74 +28,7 @@ export type FurlConfig = {
 
 const defaultOrder: readonly string[] = ['default:*'];
 
-const defaultOrderTokenPrefix = 'default:';
-
-const providerOrderToken = (provider: ProviderName): string =>
-  `${defaultOrderTokenPrefix}${provider}`;
-
-const providerNames: readonly ProviderName[] = ['jina', 'exa', 'firecrawl'];
-
-const providerOrderTokens: ReadonlySet<string> = new Set(
-  providerNames.map(providerOrderToken),
-);
-
-const freeProbeOrderTokens: readonly string[] = [
-  'default:*',
-  'default:raw',
-  'default:direct',
-  'default:md-suffix',
-];
-
-/** Inserts a provider token after free probes and before other provider tokens. */
-export const insertProviderToken = (
-  order: readonly string[],
-  provider: ProviderName,
-): string[] => {
-  const token = providerOrderToken(provider);
-  const withoutToken = order.filter((entry) => entry !== token);
-
-  const otherProviderIndex = withoutToken.findIndex((entry) =>
-    providerOrderTokens.has(entry),
-  );
-
-  if (otherProviderIndex !== -1) {
-    return [
-      ...withoutToken.slice(0, otherProviderIndex),
-      token,
-      ...withoutToken.slice(otherProviderIndex),
-    ];
-  }
-
-  const lastFreeProbeIndex = withoutToken.reduce(
-    (lastIndex, entry, index) =>
-      freeProbeOrderTokens.includes(entry) ? index : lastIndex,
-    -1,
-  );
-  const insertAt =
-    lastFreeProbeIndex === -1 ? withoutToken.length : lastFreeProbeIndex + 1;
-
-  return [
-    ...withoutToken.slice(0, insertAt),
-    token,
-    ...withoutToken.slice(insertAt),
-  ];
-};
-
-const migrateLegacyProvider = (config: FurlConfig): FurlConfig => {
-  if (config.provider === undefined) {
-    return config;
-  }
-
-  const order =
-    config.order ?? insertProviderToken(defaultOrder, config.provider);
-
-  return {
-    order: order,
-    ...(config.plugins === undefined ? {} : { plugins: config.plugins }),
-  };
-};
-
-const normalizeConfigForWrite = (config: FurlConfig): FurlConfig => {
+const normalizeConfig = (config: FurlConfig): FurlConfig => {
   const order =
     config.order ??
     (config.provider === undefined
@@ -145,7 +74,7 @@ export interface FurlConfigServiceShape {
   read: Effect.Effect<FurlConfig, ConfigError>;
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
-  ) => Effect.Effect<ProviderName, ConfigError>;
+  ) => Effect.Effect<Option.Option<ProviderName>, ConfigError>;
   /** The resolver precedence chain, defaulting to the keyless built-ins. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
   pluginArgs: (
@@ -184,17 +113,10 @@ export const FurlConfigServiceLive = Layer.effect(
         return decoded;
       }
 
-      if (decoded.order === undefined) {
-        yield* Console.error(
-          `↳ config.json's "provider" field ("${decoded.provider}") is deprecated; using it as "${providerOrderToken(decoded.provider)}" in "order" for this run. Run \`furl providers\` to persist the migration and drop the field.`,
-        );
-      } else {
-        yield* Console.error(
-          `↳ config.json contains both "order" and the deprecated "provider" field ("${decoded.provider}"); "order" wins. Run \`furl providers\` to drop the field.`,
-        );
-      }
-
-      return migrateLegacyProvider(decoded);
+      return {
+        ...normalizeConfig(decoded),
+        provider: decoded.provider,
+      };
     });
 
     const resolveOrder = Effect.gen(function* () {
@@ -207,7 +129,7 @@ export const FurlConfigServiceLive = Layer.effect(
       resolveProvider: (providerOverride: Option.Option<ProviderName>) =>
         Effect.gen(function* () {
           if (Option.isSome(providerOverride)) {
-            return providerOverride.value;
+            return Option.some(providerOverride.value);
           }
 
           const order = yield* resolveOrder;
@@ -216,11 +138,11 @@ export const FurlConfigServiceLive = Layer.effect(
               (candidate) => providerOrderToken(candidate) === entry,
             );
             if (provider !== undefined) {
-              return provider;
+              return Option.some(provider);
             }
           }
 
-          return 'jina';
+          return Option.none();
         }),
       resolveOrder: resolveOrder,
       pluginArgs: (id: string) =>
@@ -239,7 +161,7 @@ export const FurlConfigServiceLive = Layer.effect(
               Effect.mapError((cause) => new ConfigError({ cause: cause })),
             );
           const json = yield* Effect.try({
-            try: () => JSON.stringify(normalizeConfigForWrite(config), null, 2),
+            try: () => JSON.stringify(normalizeConfig(config), null, 2),
             catch: (cause) => new ConfigError({ cause: cause }),
           });
           yield* fileSystem

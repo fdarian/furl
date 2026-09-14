@@ -5,11 +5,7 @@ import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, Layer, Option } from 'effect';
 
-import {
-  FurlConfigService,
-  FurlConfigServiceLive,
-  insertProviderToken,
-} from './config-service.ts';
+import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
 
 const configLayer = FurlConfigServiceLive.pipe(
   Layer.provide(BunFileSystem.layer),
@@ -123,8 +119,8 @@ describe('FurlConfigService', () => {
     );
 
     expect(result).toEqual({
-      value: { order: ['default:*', 'default:exa'] },
-      provider: 'exa',
+      value: { order: ['default:*', 'default:exa'], provider: 'exa' },
+      provider: Option.some('exa'),
       order: ['default:*', 'default:exa'],
     });
   });
@@ -144,8 +140,8 @@ describe('FurlConfigService', () => {
     );
 
     expect(result).toEqual({
-      value: { order: ['default:jina'] },
-      provider: 'jina',
+      value: { order: ['default:jina'], provider: 'exa' },
+      provider: Option.some('jina'),
       order: ['default:jina'],
     });
   });
@@ -160,10 +156,10 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(provider).toBe('firecrawl');
+    expect(provider).toEqual(Option.some('firecrawl'));
   });
 
-  it('falls back to jina as the provider label without enabling it', async () => {
+  it('represents an order without a provider as no selected provider', async () => {
     const provider = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
@@ -171,7 +167,7 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(provider).toBe('jina');
+    expect(provider).toEqual(Option.none());
   });
 
   it('writes a canonical order and drops a legacy provider field', async () => {
@@ -211,26 +207,5 @@ describe('FurlConfigService', () => {
     expect(written).toContain('"alpha"');
     expect(written).not.toContain('"default:exa"');
     expect(written).not.toContain('"provider"');
-  });
-});
-
-describe('insertProviderToken', () => {
-  it('starts a missing order with the keyless wildcard before the provider', () => {
-    expect(insertProviderToken(['default:*'], 'exa')).toEqual([
-      'default:*',
-      'default:exa',
-    ]);
-  });
-
-  it('moves an existing provider ahead of other providers without duplicating it', () => {
-    expect(
-      insertProviderToken(['default:*', 'default:jina', 'default:exa'], 'exa'),
-    ).toEqual(['default:*', 'default:exa', 'default:jina']);
-  });
-
-  it('preserves unrelated order entries while inserting after free probes', () => {
-    expect(
-      insertProviderToken(['default:*', 'plugin:alpha'], 'firecrawl'),
-    ).toEqual(['default:*', 'default:firecrawl', 'plugin:alpha']);
   });
 });

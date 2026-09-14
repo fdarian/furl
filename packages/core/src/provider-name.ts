@@ -1,5 +1,7 @@
 import { Schema } from 'effect';
 
-export const providerSchema = Schema.Literals(['jina', 'exa', 'firecrawl']);
+export const providerNames = ['jina', 'exa', 'firecrawl'] as const;
 
-export type ProviderName = 'jina' | 'exa' | 'firecrawl';
+export const providerSchema = Schema.Literals(providerNames);
+
+export type ProviderName = (typeof providerNames)[number];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 
 import type {
   FurlConfigServiceShape,
@@ -8,6 +8,7 @@ import type {
 import type { DiscoveredPlugin } from './discovery.ts';
 import {
   buildResolverList,
+  insertProviderToken,
   matchesUrl,
   parseOrderToken,
   toPluginResolver,
@@ -27,7 +28,7 @@ const makeConfigStub = (
   } = {},
 ): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: options.order, plugins: options.plugins }),
-  resolveProvider: () => Effect.succeed('jina'),
+  resolveProvider: () => Effect.succeed(Option.some('jina')),
   resolveOrder: Effect.succeed(options.order ?? ['default:*']),
   pluginArgs: (id) => Effect.succeed(options.plugins?.[id]),
   write: () => Effect.succeed(undefined),
@@ -87,6 +88,27 @@ describe('parseOrderToken', () => {
 
     expect(String(builtinError.cause)).toContain('bogus');
     expect(String(pluginError.cause)).toContain('Invalid order token');
+  });
+});
+
+describe('insertProviderToken', () => {
+  it('starts a missing order with the keyless wildcard before the provider', () => {
+    expect(insertProviderToken(['default:*'], 'exa')).toEqual([
+      'default:*',
+      'default:exa',
+    ]);
+  });
+
+  it('moves an existing provider ahead of other providers without duplicating it', () => {
+    expect(
+      insertProviderToken(['default:*', 'default:jina', 'default:exa'], 'exa'),
+    ).toEqual(['default:*', 'default:exa', 'default:jina']);
+  });
+
+  it('preserves unrelated order entries while inserting after free probes', () => {
+    expect(
+      insertProviderToken(['default:*', 'plugin:alpha'], 'firecrawl'),
+    ).toEqual(['default:*', 'default:firecrawl', 'plugin:alpha']);
   });
 });
 
