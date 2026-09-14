@@ -29,12 +29,8 @@ export type FetchResult = {
 };
 
 export type FetchOptions = {
-  /** Force one order token for this call, without changing config.json. */
-  pluginToken?: string;
-  /** Preserve the legacy `--provider` behavior for this call. */
-  forcedProvider?: ProviderName;
-  /** Skip plugin discovery for this call. */
-  pluginsDisabled?: boolean;
+  /** Override the configured resolver order for this call. */
+  resolvers?: readonly string[];
 };
 
 export type FurlError =
@@ -49,24 +45,16 @@ type PluginDiscoveryService = Context.Service.Shape<typeof PluginDiscovery>;
 
 const isPluginToken = (token: string): boolean => token.startsWith('plugin:');
 
-export const shouldDiscoverPlugins = (
-  order: readonly string[],
-  pluginsDisabled: boolean | undefined,
-): boolean => pluginsDisabled !== true && order.some(isPluginToken);
+export const shouldDiscoverPlugins = (order: readonly string[]): boolean =>
+  order.some(isPluginToken);
 
 const effectiveOrder = (
   config: FurlConfigServiceShape,
   options: FetchOptions,
 ): Effect.Effect<readonly string[], ConfigError> => {
-  if (options.pluginToken !== undefined) {
-    return Effect.succeed([options.pluginToken]);
-  }
-
-  if (options.forcedProvider !== undefined) {
-    return Effect.succeed(legacyOrder(options.forcedProvider));
-  }
-
-  return config.resolveOrder;
+  return options.resolvers === undefined
+    ? config.resolveOrder
+    : Effect.succeed(options.resolvers);
 };
 
 const fetchMarkdown = (
@@ -93,10 +81,7 @@ const fetchMarkdown = (
 
     const defaultResolvers = createDefaultResolvers(client, secrets);
     const order = yield* effectiveOrder(config, options);
-    const discoveredPlugins = shouldDiscoverPlugins(
-      order,
-      options.pluginsDisabled,
-    )
+    const discoveredPlugins = shouldDiscoverPlugins(order)
       ? yield* discovery.discover
       : [];
     const resolverList = yield* buildResolverList(
@@ -138,7 +123,7 @@ export const FurlLive = Layer.effect(
         fetchMarkdown(client, config, secrets, discovery, url, options ?? {}),
       fetchWithProvider: (url: string, provider: ProviderName) =>
         fetchMarkdown(client, config, secrets, discovery, url, {
-          forcedProvider: provider,
+          resolvers: legacyOrder(provider),
         }),
     };
   }),

@@ -3,26 +3,26 @@ import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 import { providersCommand } from './providers';
 
-const providerFlag = Flag.Literals('provider', [
-  'jina',
-  'exa',
-  'firecrawl',
-] as const).pipe(
-  Flag.optional,
-  Flag.withAlias('p'),
-  Flag.withDescription('Override the configured legacy fallback provider'),
-);
+const splitResolverTokens = (value: string): readonly string[] => {
+  const tokens = value.split(',').map((token) => token.trim());
 
-const pluginFlag = Flag.String('plugin').pipe(
+  if (tokens.some((token) => token.length === 0)) {
+    throw new Error(
+      '--resolvers entries must be non-empty comma-separated order tokens',
+    );
+  }
+
+  return tokens;
+};
+
+const resolversFlag = Flag.String('resolvers').pipe(
+  Flag.mapTryCatch(splitResolverTokens, (cause) =>
+    cause instanceof Error ? cause.message : String(cause),
+  ),
   Flag.optional,
   Flag.withDescription(
-    'Force one order token: default:*, default:<builtin-name>, or plugin:<plugin-name>',
+    'Override order with comma-separated tokens: default:*, default:<builtin-name>, or plugin:<plugin-name>',
   ),
-);
-
-const pluginsEnabledFlag = Flag.Boolean('plugins').pipe(
-  Flag.withDefault(true),
-  Flag.withDescription('Discover plugins (use --no-plugins to skip them)'),
 );
 
 const urlArgument = Argument.String('url').pipe(
@@ -34,29 +34,21 @@ export const rootCommand = Command.make(
   'furl',
   {
     url: urlArgument,
-    provider: providerFlag,
-    plugin: pluginFlag,
-    plugins: pluginsEnabledFlag,
+    resolvers: resolversFlag,
   },
   (config) =>
     Effect.gen(function* () {
       if (Option.isNone(config.url)) {
-        yield* Console.log(
-          'Usage: furl <url> [--plugin <order-token>] [--no-plugins] [--provider jina|exa|firecrawl]',
-        );
+        yield* Console.log('Usage: furl <url> [--resolvers <tokens>]');
         yield* Console.log('       furl providers');
         return;
       }
 
       const furl = yield* Furl;
       const result = yield* furl.fetch(config.url.value, {
-        pluginToken: Option.isSome(config.plugin)
-          ? config.plugin.value
+        resolvers: Option.isSome(config.resolvers)
+          ? config.resolvers.value
           : undefined,
-        forcedProvider: Option.isSome(config.provider)
-          ? config.provider.value
-          : undefined,
-        pluginsDisabled: !config.plugins,
       });
 
       yield* Console.log(result.markdown);
