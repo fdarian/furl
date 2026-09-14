@@ -6,6 +6,7 @@ export type {
 export {
   FurlConfigService,
   FurlConfigServiceLive,
+  insertProviderToken,
 } from './config-service.ts';
 export {
   AllResolversFailed,

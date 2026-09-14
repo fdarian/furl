@@ -7,8 +7,4 @@
   - `src/config-service.ts`
   - `src/secrets-service.ts`
   - `src/providers/*`
-- Fallback chain:
-  - raw extension passthrough
-  - direct `Accept: text/markdown`
-  - `.md` suffix retry
-  - provider fallback (`jina`, `exa`, `firecrawl`)
+- Default chain (`default:*`): raw extension passthrough, direct `Accept: text/markdown`, then `.md` suffix retry. API providers (`jina`, `exa`, `firecrawl`) are selected explicitly with `default:<name>`.

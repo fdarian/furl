@@ -28,14 +28,7 @@ const makeConfigStub = (
 ): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: options.order, plugins: options.plugins }),
   resolveProvider: () => Effect.succeed('jina'),
-  resolveOrder: Effect.succeed(
-    options.order ?? [
-      'default:raw',
-      'default:direct',
-      'default:md-suffix',
-      'default:jina',
-    ],
-  ),
+  resolveOrder: Effect.succeed(options.order ?? ['default:*']),
   pluginArgs: (id) => Effect.succeed(options.plugins?.[id]),
   write: () => Effect.succeed(undefined),
 });
@@ -126,6 +119,18 @@ describe('buildResolverList', () => {
         defaultResolvers,
         [],
       ),
+    );
+
+    expect(result.map((resolver) => resolver.id)).toEqual([
+      'raw',
+      'direct',
+      'md-suffix',
+    ]);
+  });
+
+  it('uses only keyless built-ins when the config has no explicit order', async () => {
+    const result = await Effect.runPromise(
+      buildResolverList(makeConfigStub(), secrets, url, defaultResolvers, []),
     );
 
     expect(result.map((resolver) => resolver.id)).toEqual([
