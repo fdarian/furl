@@ -1,8 +1,12 @@
 import { Context, Effect, FileSystem, Layer, Option, Schema } from 'effect';
 
 import { ConfigError } from './errors.ts';
-import type { ProviderName } from './provider-name.ts';
-import { providerSchema } from './provider-name.ts';
+import { insertProviderToken, providerOrderToken } from './plugin/order.ts';
+import {
+  type ProviderName,
+  providerNames,
+  providerSchema,
+} from './provider-name.ts';
 
 const pluginConfigValueSchema = Schema.Record(Schema.String, Schema.Unknown);
 
@@ -22,12 +26,20 @@ export type FurlConfig = {
   plugins?: Readonly<Record<string, PluginConfigValue>> | undefined;
 };
 
-export const legacyOrder = (provider: ProviderName): readonly string[] => [
-  'default:raw',
-  'default:direct',
-  'default:md-suffix',
-  `default:${provider}`,
-];
+const defaultOrder: readonly string[] = ['default:*'];
+
+const normalizeConfig = (config: FurlConfig): FurlConfig => {
+  const order =
+    config.order ??
+    (config.provider === undefined
+      ? defaultOrder
+      : insertProviderToken(defaultOrder, config.provider));
+
+  return {
+    order: order,
+    ...(config.plugins === undefined ? {} : { plugins: config.plugins }),
+  };
+};
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
 
@@ -62,7 +74,8 @@ export interface FurlConfigServiceShape {
   read: Effect.Effect<FurlConfig, ConfigError>;
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
-  ) => Effect.Effect<ProviderName, ConfigError>;
+  ) => Effect.Effect<Option.Option<ProviderName>, ConfigError>;
+  /** The resolver precedence chain, defaulting to the keyless built-ins. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
   pluginArgs: (
     id: string,
@@ -92,9 +105,23 @@ export const FurlConfigServiceLive = Layer.effect(
         catch: (cause) => new ConfigError({ cause: cause }),
       });
 
-      return yield* decodeConfig(parsedConfig).pipe(
+      const decoded = yield* decodeConfig(parsedConfig).pipe(
         Effect.mapError((cause) => new ConfigError({ cause: cause })),
       );
+
+      if (decoded.provider === undefined) {
+        return decoded;
+      }
+
+      return {
+        ...normalizeConfig(decoded),
+        provider: decoded.provider,
+      };
+    });
+
+    const resolveOrder = Effect.gen(function* () {
+      const config = yield* read;
+      return config.order ?? defaultOrder;
     });
 
     return {
@@ -102,26 +129,22 @@ export const FurlConfigServiceLive = Layer.effect(
       resolveProvider: (providerOverride: Option.Option<ProviderName>) =>
         Effect.gen(function* () {
           if (Option.isSome(providerOverride)) {
-            return providerOverride.value;
+            return Option.some(providerOverride.value);
           }
 
-          const config = yield* read;
-
-          if (config.provider !== undefined) {
-            return config.provider;
+          const order = yield* resolveOrder;
+          for (const entry of order) {
+            const provider = providerNames.find(
+              (candidate) => providerOrderToken(candidate) === entry,
+            );
+            if (provider !== undefined) {
+              return Option.some(provider);
+            }
           }
 
-          return 'jina';
+          return Option.none();
         }),
-      resolveOrder: Effect.gen(function* () {
-        const config = yield* read;
-
-        if (config.order !== undefined) {
-          return config.order;
-        }
-
-        return legacyOrder(config.provider ?? 'jina');
-      }),
+      resolveOrder: resolveOrder,
       pluginArgs: (id: string) =>
         Effect.gen(function* () {
           const config = yield* read;
@@ -138,7 +161,7 @@ export const FurlConfigServiceLive = Layer.effect(
               Effect.mapError((cause) => new ConfigError({ cause: cause })),
             );
           const json = yield* Effect.try({
-            try: () => JSON.stringify(config, null, 2),
+            try: () => JSON.stringify(normalizeConfig(config), null, 2),
             catch: (cause) => new ConfigError({ cause: cause }),
           });
           yield* fileSystem

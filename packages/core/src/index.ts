@@ -26,6 +26,7 @@ export {
   PluginDiscovery,
 } from './plugin/discovery.ts';
 export { PluginLoader } from './plugin/loader.ts';
+export { insertProviderToken } from './plugin/order.ts';
 export type { ConfigField, PluginManifest } from './plugin/types.ts';
 export type { ProviderName } from './provider-name.ts';
 export { providerSchema } from './provider-name.ts';

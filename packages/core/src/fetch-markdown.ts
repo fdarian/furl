@@ -2,11 +2,7 @@ import { Context, Effect, Layer } from 'effect';
 import { HttpClient } from 'effect/unstable/http';
 
 import type { FurlConfigServiceShape } from './config-service.ts';
-import {
-  FurlConfigService,
-  FurlConfigServiceLive,
-  legacyOrder,
-} from './config-service.ts';
+import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
 import type {
   AllResolversFailed,
   ConfigError,
@@ -123,7 +119,7 @@ export const FurlLive = Layer.effect(
         fetchMarkdown(client, config, secrets, discovery, url, options ?? {}),
       fetchWithProvider: (url: string, provider: ProviderName) =>
         fetchMarkdown(client, config, secrets, discovery, url, {
-          resolvers: legacyOrder(provider),
+          resolvers: ['default:*', `default:${provider}`],
         }),
     };
   }),

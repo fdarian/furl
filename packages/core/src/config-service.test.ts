@@ -43,7 +43,7 @@ describe('FurlConfigService', () => {
     );
   };
 
-  it('defaults order to the legacy resolver chain', async () => {
+  it('defaults order to the keyless built-ins', async () => {
     const order = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
@@ -51,12 +51,7 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(order).toEqual([
-      'default:raw',
-      'default:direct',
-      'default:md-suffix',
-      'default:jina',
-    ]);
+    expect(order).toEqual(['default:*']);
   });
 
   it('reads an explicit order array unchanged', async () => {
@@ -109,7 +104,7 @@ describe('FurlConfigService', () => {
     expect(error._tag).toBe('ConfigError');
   });
 
-  it('keeps a legacy provider field readable without migrating or writing it', async () => {
+  it('migrates a legacy provider field into the effective order on read', async () => {
     writeConfig({ provider: 'exa' });
 
     const result = await runWithConfig(
@@ -124,18 +119,36 @@ describe('FurlConfigService', () => {
     );
 
     expect(result).toEqual({
-      value: { provider: 'exa' },
-      provider: 'exa',
-      order: [
-        'default:raw',
-        'default:direct',
-        'default:md-suffix',
-        'default:exa',
-      ],
+      value: { order: ['default:*', 'default:exa'], provider: 'exa' },
+      provider: Option.some('exa'),
+      order: ['default:*', 'default:exa'],
     });
   });
 
-  it('uses the legacy default provider when no provider is configured', async () => {
+  it('lets an explicit order win over a legacy provider field', async () => {
+    writeConfig({ provider: 'exa', order: ['default:jina'] });
+
+    const result = await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        return {
+          value: yield* config.read,
+          provider: yield* config.resolveProvider(Option.none()),
+          order: yield* config.resolveOrder,
+        };
+      }),
+    );
+
+    expect(result).toEqual({
+      value: { order: ['default:jina'], provider: 'exa' },
+      provider: Option.some('jina'),
+      order: ['default:jina'],
+    });
+  });
+
+  it('uses the first provider token in an explicit order for the provider label', async () => {
+    writeConfig({ order: ['default:firecrawl', 'default:jina'] });
+
     const provider = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
@@ -143,6 +156,56 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(provider).toBe('jina');
+    expect(provider).toEqual(Option.some('firecrawl'));
+  });
+
+  it('represents an order without a provider as no selected provider', async () => {
+    const provider = await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        return yield* config.resolveProvider(Option.none());
+      }),
+    );
+
+    expect(provider).toEqual(Option.none());
+  });
+
+  it('writes a canonical order and drops a legacy provider field', async () => {
+    await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        yield* config.write({ provider: 'exa' });
+      }),
+    );
+
+    const written = fs.readFileSync(
+      path.join(tempHome, '.config/furl/config.json'),
+      'utf8',
+    );
+    expect(written).toContain('"default:*"');
+    expect(written).toContain('"default:exa"');
+    expect(written).not.toContain('"provider"');
+  });
+
+  it('keeps an explicit order when writing a config that also has provider', async () => {
+    await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        yield* config.write({
+          provider: 'exa',
+          order: ['default:jina'],
+          plugins: { alpha: { mode: 'full' } },
+        });
+      }),
+    );
+
+    const written = fs.readFileSync(
+      path.join(tempHome, '.config/furl/config.json'),
+      'utf8',
+    );
+    expect(written).toContain('"default:jina"');
+    expect(written).toContain('"alpha"');
+    expect(written).not.toContain('"default:exa"');
+    expect(written).not.toContain('"provider"');
   });
 });

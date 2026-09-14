@@ -2,8 +2,8 @@ import { Effect } from 'effect';
 
 import type { FurlConfigServiceShape } from '../config-service.ts';
 import { ConfigError, ResolverError } from '../errors.ts';
+import { type ProviderName, providerNames } from '../provider-name.ts';
 import type { SecretsService } from '../secrets-service.ts';
-
 import {
   type DefaultResolverName,
   defaultResolverNames,
@@ -29,6 +29,53 @@ const defaultResolverNameSet: ReadonlySet<string> = new Set(
 
 const defaultTokenPrefix = 'default:';
 const pluginTokenPrefix = 'plugin:';
+
+const freeProbeOrderTokens: readonly string[] = [
+  `${defaultTokenPrefix}*`,
+  ...defaultWildcardResolverNames.map((name) => `${defaultTokenPrefix}${name}`),
+];
+
+export const providerOrderToken = (provider: ProviderName): string =>
+  `${defaultTokenPrefix}${provider}`;
+
+export const providerOrderTokens: ReadonlySet<string> = new Set(
+  providerNames.map(providerOrderToken),
+);
+
+/** Inserts a provider token after free probes and before other provider tokens. */
+export const insertProviderToken = (
+  order: readonly string[],
+  provider: ProviderName,
+): string[] => {
+  const token = providerOrderToken(provider);
+  const withoutToken = order.filter((entry) => entry !== token);
+
+  const otherProviderIndex = withoutToken.findIndex((entry) =>
+    providerOrderTokens.has(entry),
+  );
+
+  if (otherProviderIndex !== -1) {
+    return [
+      ...withoutToken.slice(0, otherProviderIndex),
+      token,
+      ...withoutToken.slice(otherProviderIndex),
+    ];
+  }
+
+  const lastFreeProbeIndex = withoutToken.reduce(
+    (lastIndex, entry, index) =>
+      freeProbeOrderTokens.includes(entry) ? index : lastIndex,
+    -1,
+  );
+  const insertAt =
+    lastFreeProbeIndex === -1 ? withoutToken.length : lastFreeProbeIndex + 1;
+
+  return [
+    ...withoutToken.slice(0, insertAt),
+    token,
+    ...withoutToken.slice(insertAt),
+  ];
+};
 
 const invalidTokenError = (token: string): ConfigError =>
   new ConfigError({
