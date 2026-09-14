@@ -29,8 +29,6 @@ export type FetchOptions = {
   pluginToken?: string;
   /** Preserve the legacy `--provider` behavior for this call. */
   forcedProvider?: ProviderName;
-  /** Compatibility input for callers that used the pre-order resolver id option. */
-  forcedResolverId?: string;
   /** Skip plugin discovery for this call. */
   pluginsDisabled?: boolean;
 };
@@ -52,14 +50,6 @@ const legacyOrder = (provider: ProviderName): readonly string[] => [
   `default:${provider}`,
 ];
 
-const resolverTokenFromLegacyId = (id: string): string => {
-  if (id.startsWith('default:') || id.startsWith('plugin:')) {
-    return id;
-  }
-
-  return `plugin:${id}`;
-};
-
 const isPluginToken = (token: string): boolean => token.startsWith('plugin:');
 
 const effectiveOrder = (
@@ -68,10 +58,6 @@ const effectiveOrder = (
 ): readonly string[] => {
   if (options.pluginToken !== undefined) {
     return [options.pluginToken];
-  }
-
-  if (options.forcedResolverId !== undefined) {
-    return [resolverTokenFromLegacyId(options.forcedResolverId)];
   }
 
   if (options.forcedProvider !== undefined) {
