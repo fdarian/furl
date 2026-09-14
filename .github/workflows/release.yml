@@ -1,8 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
+    paths: [".changeset/**"]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: write
