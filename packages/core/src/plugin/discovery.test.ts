@@ -6,11 +6,11 @@ import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem } from 'effect';
 
 import { discoverPlugins, loadPluginManifest } from './discovery.ts';
-import type { PluginLoaderShape } from './loader.ts';
+import type { PluginLoader } from './loader.ts';
 
 const makeLoaderStub = (
   manifestByEntrypoint: Readonly<Record<string, unknown>>,
-): PluginLoaderShape => ({
+): PluginLoader['Service'] => ({
   load: (entrypointPath) =>
     Effect.succeed(manifestByEntrypoint[entrypointPath]),
 });
@@ -237,7 +237,7 @@ describe('discoverPlugins', () => {
   it('imports and returns a valid plugin folder', async () => {
     const folder = writePluginFolder('a');
     const loaded: string[] = [];
-    const loader: PluginLoaderShape = {
+    const loader: PluginLoader['Service'] = {
       load: (entrypointPath) => {
         loaded.push(entrypointPath);
         return Effect.succeed(validManifest('a'));

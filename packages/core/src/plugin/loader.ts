@@ -17,27 +17,22 @@ const registerVirtualPluginsModule = Effect.promise(async () => {
   });
 });
 
-export type PluginLoaderShape = {
-  load: (entrypointPath: string) => Effect.Effect<unknown, PluginLoadError>;
-};
+export class PluginLoader extends Context.Service<PluginLoader>()(
+  'furl/plugin-loader',
+  {
+    make: Effect.gen(function* () {
+      yield* registerVirtualPluginsModule;
 
-export class PluginLoader extends Context.Service<
-  PluginLoader,
-  PluginLoaderShape
->()('furl/plugin-loader') {}
-
-export const PluginLoaderLive = Layer.effect(
-  PluginLoader,
-  Effect.gen(function* () {
-    yield* registerVirtualPluginsModule;
-
-    return {
-      load: (entrypointPath: string) =>
-        Effect.tryPromise({
-          try: () => import(entrypointPath),
-          catch: (cause) =>
-            new PluginLoadError({ path: entrypointPath, cause: cause }),
-        }).pipe(Effect.map((module) => module.default)),
-    };
-  }),
-);
+      return {
+        load: (entrypointPath: string) =>
+          Effect.tryPromise({
+            try: () => import(entrypointPath),
+            catch: (cause) =>
+              new PluginLoadError({ path: entrypointPath, cause: cause }),
+          }).pipe(Effect.map((module) => module.default)),
+      };
+    }),
+  },
+) {
+  static readonly layer = Layer.effect(PluginLoader, PluginLoader.make);
+}

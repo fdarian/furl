@@ -11,7 +11,7 @@ import {
 import { getConfigDirectoryPath } from '../config-service.ts';
 import { describeCause, PluginLoadError } from '../errors.ts';
 
-import { PluginLoader, type PluginLoaderShape } from './loader.ts';
+import { PluginLoader } from './loader.ts';
 import type { PluginManifest } from './types.ts';
 
 export type DiscoveredPlugin = {
@@ -198,7 +198,7 @@ const validateManifest = (
 
 export const loadPluginManifest = (
   fileSystem: FileSystem.FileSystem,
-  loader: PluginLoaderShape,
+  loader: PluginLoader['Service'],
   folderPath: string,
 ): Effect.Effect<DiscoveredPlugin, PluginLoadError> =>
   Effect.gen(function* () {
@@ -216,7 +216,7 @@ export const loadPluginManifest = (
 
 const discoverPluginFolder = (
   fileSystem: FileSystem.FileSystem,
-  loader: PluginLoaderShape,
+  loader: PluginLoader['Service'],
   pluginsDirectory: string,
   folderName: string,
 ): Effect.Effect<Option.Option<DiscoveredPlugin>> =>
@@ -269,7 +269,7 @@ const dedupeByName = (
 /** Scans `~/.config/furl/plugins/`, loading every valid plugin folder. */
 export const discoverPlugins = (
   fileSystem: FileSystem.FileSystem,
-  loader: PluginLoaderShape,
+  loader: PluginLoader['Service'],
 ): Effect.Effect<DiscoveredPlugin[], PluginLoadError> =>
   Effect.gen(function* () {
     const pluginsDirectory = yield* getPluginsDirectoryPath.pipe(

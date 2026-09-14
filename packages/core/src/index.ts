@@ -16,8 +16,7 @@ export {
   loadPluginManifest,
   PluginDiscovery,
 } from './plugin/discovery.ts';
-export type { PluginLoaderShape } from './plugin/loader.ts';
-export { PluginLoader, PluginLoaderLive } from './plugin/loader.ts';
+export { PluginLoader } from './plugin/loader.ts';
 export type { ConfigField, PluginManifest } from './plugin/types.ts';
 export type { ProviderName } from './provider-name.ts';
 export { providerSchema } from './provider-name.ts';

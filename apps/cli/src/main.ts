@@ -5,7 +5,7 @@ import {
   FurlConfigServiceLive,
   FurlLive,
   PluginDiscovery,
-  PluginLoaderLive,
+  PluginLoader,
   SecretsLive,
 } from '@furl/core';
 import { Effect, Layer } from 'effect';
@@ -18,10 +18,8 @@ const configLayer = FurlConfigServiceLive.pipe(
   Layer.provide(BunServices.layer),
 );
 
-const pluginLoaderLayer = PluginLoaderLive;
-
 const pluginDiscoveryLayer = PluginDiscovery.layer.pipe(
-  Layer.provide(Layer.mergeAll(BunServices.layer, pluginLoaderLayer)),
+  Layer.provide(Layer.mergeAll(BunServices.layer, PluginLoader.layer)),
 );
 
 const furlLayer = FurlLive.pipe(
@@ -39,7 +37,7 @@ const appLayer = Layer.mergeAll(
   BunServices.layer,
   SecretsLive,
   configLayer,
-  pluginLoaderLayer,
+  PluginLoader.layer,
   pluginDiscoveryLayer,
   furlLayer,
 );
