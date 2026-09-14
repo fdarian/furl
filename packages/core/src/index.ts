@@ -1,4 +1,12 @@
-export { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
+export type {
+  FurlConfig,
+  FurlConfigServiceShape,
+  PluginConfigValue,
+} from './config-service.ts';
+export {
+  FurlConfigService,
+  FurlConfigServiceLive,
+} from './config-service.ts';
 export {
   AllResolversFailed,
   ConfigError,
@@ -9,6 +17,7 @@ export {
   ProviderError,
   ResolverError,
 } from './errors.ts';
+export type { FetchOptions, FetchResult, FurlError } from './fetch-markdown.ts';
 export { Furl, FurlLive } from './fetch-markdown.ts';
 export type { DiscoveredPlugin } from './plugin/discovery.ts';
 export {

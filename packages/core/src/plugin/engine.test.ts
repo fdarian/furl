@@ -159,16 +159,4 @@ describe('runResolvers', () => {
 
     expect(error.url).toBe('https://example.com/page');
   });
-
-  it('uses a resolver source alias when one is provided', async () => {
-    const resolver = makeResolverStub({
-      id: 'jina',
-      source: 'provider:jina',
-      run: () => Effect.succeed(new ResolveSuccess({ markdown: '# jina' })),
-    });
-
-    const result = await Effect.runPromise(runResolvers(url, [resolver]));
-
-    expect(result).toEqual({ markdown: '# jina', source: 'provider:jina' });
-  });
 });

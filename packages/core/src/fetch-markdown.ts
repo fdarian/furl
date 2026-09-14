@@ -1,129 +1,140 @@
-import { Context, Effect, Layer, Option } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 import { HttpClient } from 'effect/unstable/http';
 
-import type { FurlConfigServiceShape } from './config-service.ts';
+import type { FurlConfig, FurlConfigServiceShape } from './config-service.ts';
 import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
-import {
+import type {
   AllResolversFailed,
-  type ConfigError,
-  FetchError,
-  KeychainError,
-  NoProviderKey,
-  ProviderError,
+  ConfigError,
+  PluginLoadError,
   ResolverError,
 } from './errors.ts';
+import { FetchError } from './errors.ts';
 import { createDefaultResolvers } from './plugin/default/index.ts';
-import { type ResolutionResult, runResolvers } from './plugin/engine.ts';
-import type { Resolver } from './plugin/resolver.ts';
+import { PluginDiscovery } from './plugin/discovery.ts';
+import { runResolvers } from './plugin/engine.ts';
+import { PluginLoader } from './plugin/loader.ts';
+import { buildResolverList } from './plugin/order.ts';
 import type { ProviderName } from './provider-name.ts';
 import type { SecretsService } from './secrets-service.ts';
 import { Secrets, SecretsLive } from './secrets-service.ts';
 
 export type FetchResult = {
   markdown: string;
-  source:
-    | 'raw'
-    | 'direct'
-    | 'md-suffix'
-    | 'provider:jina'
-    | 'provider:exa'
-    | 'provider:firecrawl';
+  source: string;
+};
+
+export type FetchOptions = {
+  /** Force one order token for this call, without changing config.json. */
+  pluginToken?: string;
+  /** Preserve the legacy `--provider` behavior for this call. */
+  forcedProvider?: ProviderName;
+  /** Compatibility input for callers that used the pre-order resolver id option. */
+  forcedResolverId?: string;
+  /** Skip plugin discovery for this call. */
+  pluginsDisabled?: boolean;
 };
 
 export type FurlError =
   | AllResolversFailed
   | ConfigError
   | FetchError
-  | KeychainError
-  | NoProviderKey
-  | ProviderError
+  | PluginLoadError
   | ResolverError;
 
 type HttpClientService = Context.Service.Shape<typeof HttpClient.HttpClient>;
+type PluginDiscoveryService = Context.Service.Shape<typeof PluginDiscovery>;
 
-const isProbeResolver = (resolver: Resolver): boolean =>
-  resolver.id === 'raw' ||
-  resolver.id === 'direct' ||
-  resolver.id === 'md-suffix';
+const legacyOrder = (provider: ProviderName): readonly string[] => [
+  'default:raw',
+  'default:direct',
+  'default:md-suffix',
+  `default:${provider}`,
+];
 
-const unwrapResolverFailure = (
-  error: ResolverError | AllResolversFailed,
-): FurlError => {
-  const cause =
-    error instanceof ResolverError
-      ? error.cause
-      : error.failures.length === 1
-        ? error.failures[0]?.cause
-        : undefined;
-
-  if (cause instanceof ResolverError || cause instanceof AllResolversFailed) {
-    return unwrapResolverFailure(cause);
+const resolverTokenFromLegacyId = (id: string): string => {
+  if (id.startsWith('default:') || id.startsWith('plugin:')) {
+    return id;
   }
 
-  if (
-    cause instanceof FetchError ||
-    cause instanceof KeychainError ||
-    cause instanceof NoProviderKey ||
-    cause instanceof ProviderError
-  ) {
-    return cause;
-  }
-
-  return error;
+  return `plugin:${id}`;
 };
 
-const toFetchResult = (result: ResolutionResult): FetchResult => ({
-  markdown: result.markdown,
-  source: result.source as FetchResult['source'],
-});
+const isPluginToken = (token: string): boolean => token.startsWith('plugin:');
+
+const effectiveOrder = (
+  config: FurlConfig,
+  options: FetchOptions,
+): readonly string[] => {
+  if (options.pluginToken !== undefined) {
+    return [options.pluginToken];
+  }
+
+  if (options.forcedResolverId !== undefined) {
+    return [resolverTokenFromLegacyId(options.forcedResolverId)];
+  }
+
+  if (options.forcedProvider !== undefined) {
+    return legacyOrder(options.forcedProvider);
+  }
+
+  if (config.order !== undefined) {
+    return config.order;
+  }
+
+  return legacyOrder(config.provider ?? 'jina');
+};
 
 const fetchMarkdown = (
   client: HttpClientService,
   config: FurlConfigServiceShape,
   secrets: SecretsService,
+  discovery: PluginDiscoveryService,
   url: string,
-  providerOverride: Option.Option<ProviderName>,
-): Effect.Effect<FetchResult, FurlError> =>
+  options: FetchOptions,
+): Effect.Effect<
+  FetchResult,
+  | ConfigError
+  | FetchError
+  | PluginLoadError
+  | AllResolversFailed
+  | ResolverError
+> =>
   Effect.gen(function* () {
     const parsedUrl = yield* Effect.try({
       try: () => new URL(url),
       catch: (cause) =>
         new FetchError({ url: url, status: undefined, cause: cause }),
     });
+
+    const configValue = yield* config.read;
     const defaultResolvers = createDefaultResolvers(client, secrets);
-    const probeResolvers = defaultResolvers.filter(isProbeResolver);
-    const probeResult = yield* runResolvers(parsedUrl, probeResolvers).pipe(
-      Effect.map(Option.some),
-      Effect.catchTag('AllResolversFailed', () =>
-        Effect.succeed(Option.none<ResolutionResult>()),
-      ),
-      Effect.mapError(unwrapResolverFailure),
+    const order = effectiveOrder(configValue, options);
+    const requiresPluginDiscovery = order.some(isPluginToken);
+    const discoveredPlugins =
+      options.pluginsDisabled === true ||
+      (options.forcedProvider !== undefined && !requiresPluginDiscovery)
+        ? []
+        : yield* discovery.discover;
+    const resolverList = yield* buildResolverList(
+      config,
+      secrets,
+      parsedUrl,
+      defaultResolvers,
+      discoveredPlugins,
+      order,
     );
 
-    if (Option.isSome(probeResult)) {
-      return toFetchResult(probeResult.value);
-    }
-
-    const provider = yield* config.resolveProvider(providerOverride);
-    const providerResolver = defaultResolvers.find(
-      (candidate) => candidate.id === provider,
-    );
-    if (providerResolver === undefined) {
-      return yield* Effect.die(
-        new Error(`No default resolver found for provider "${provider}"`),
-      );
-    }
-
-    return yield* runResolvers(parsedUrl, [providerResolver]).pipe(
-      Effect.map(toFetchResult),
-      Effect.mapError(unwrapResolverFailure),
-    );
+    return yield* runResolvers(parsedUrl, resolverList);
   });
 
 export class Furl extends Context.Service<
   Furl,
   {
-    fetch: (url: string) => Effect.Effect<FetchResult, FurlError>;
+    fetch: (
+      url: string,
+      options?: FetchOptions,
+    ) => Effect.Effect<FetchResult, FurlError>;
     fetchWithProvider: (
       url: string,
       provider: ProviderName,
@@ -137,12 +148,19 @@ export const FurlLive = Layer.effect(
     const client = yield* HttpClient.HttpClient;
     const config = yield* FurlConfigService;
     const secrets = yield* Secrets;
+    const discovery = yield* PluginDiscovery;
 
     return {
-      fetch: (url: string) =>
-        fetchMarkdown(client, config, secrets, url, Option.none()),
+      fetch: (url: string, options?: FetchOptions) =>
+        fetchMarkdown(client, config, secrets, discovery, url, options ?? {}),
       fetchWithProvider: (url: string, provider: ProviderName) =>
-        fetchMarkdown(client, config, secrets, url, Option.some(provider)),
+        fetchMarkdown(client, config, secrets, discovery, url, {
+          forcedProvider: provider,
+        }),
     };
   }),
-).pipe(Layer.provide(SecretsLive), Layer.provide(FurlConfigServiceLive));
+).pipe(
+  Layer.provide(PluginDiscovery.layer.pipe(Layer.provide(PluginLoader.layer))),
+  Layer.provide(SecretsLive),
+  Layer.provide(FurlConfigServiceLive),
+);

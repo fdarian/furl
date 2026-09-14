@@ -13,7 +13,6 @@ export const jinaResolver = (
   secrets: SecretsService,
 ): Resolver => ({
   id: 'jina',
-  source: 'provider:jina',
   isDefault: true,
   match: null,
   specificity: matchAnySpecificity,
