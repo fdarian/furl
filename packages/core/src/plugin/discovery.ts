@@ -309,23 +309,18 @@ export const discoverPlugins = (
     return yield* dedupeByName(plugins);
   });
 
-export type PluginDiscoveryShape = {
-  discover: Effect.Effect<DiscoveredPlugin[], PluginLoadError>;
-};
+export class PluginDiscovery extends Context.Service<PluginDiscovery>()(
+  'furl/plugin-discovery',
+  {
+    make: Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const loader = yield* PluginLoader;
 
-export class PluginDiscovery extends Context.Service<
-  PluginDiscovery,
-  PluginDiscoveryShape
->()('furl/plugin-discovery') {}
-
-export const PluginDiscoveryLive = Layer.effect(
-  PluginDiscovery,
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const loader = yield* PluginLoader;
-
-    return {
-      discover: discoverPlugins(fileSystem, loader),
-    };
-  }),
-);
+      return {
+        discover: discoverPlugins(fileSystem, loader),
+      };
+    }),
+  },
+) {
+  static readonly layer = Layer.effect(PluginDiscovery, PluginDiscovery.make);
+}

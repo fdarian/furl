@@ -4,7 +4,7 @@ import { BunRuntime, BunServices } from '@effect/platform-bun';
 import {
   FurlConfigServiceLive,
   FurlLive,
-  PluginDiscoveryLive,
+  PluginDiscovery,
   PluginLoaderLive,
   SecretsLive,
 } from '@furl/core';
@@ -20,7 +20,7 @@ const configLayer = FurlConfigServiceLive.pipe(
 
 const pluginLoaderLayer = PluginLoaderLive;
 
-const pluginDiscoveryLayer = PluginDiscoveryLive.pipe(
+const pluginDiscoveryLayer = PluginDiscovery.layer.pipe(
   Layer.provide(Layer.mergeAll(BunServices.layer, pluginLoaderLayer)),
 );
 

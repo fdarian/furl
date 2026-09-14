@@ -10,15 +10,11 @@ export {
   ResolverError,
 } from './errors.ts';
 export { Furl, FurlLive } from './fetch-markdown.ts';
-export type {
-  DiscoveredPlugin,
-  PluginDiscoveryShape,
-} from './plugin/discovery.ts';
+export type { DiscoveredPlugin } from './plugin/discovery.ts';
 export {
   getPluginsDirectoryPath,
   loadPluginManifest,
   PluginDiscovery,
-  PluginDiscoveryLive,
 } from './plugin/discovery.ts';
 export type { PluginLoaderShape } from './plugin/loader.ts';
 export { PluginLoader, PluginLoaderLive } from './plugin/loader.ts';
