@@ -13,18 +13,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
+      - name: Checkout
+        uses: actions/checkout@v7
+      
+      - name: Setup
+        uses: ./.github/actions/setup
+      
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
-      - run: npm install -g npm@latest
-      - run: bun install --frozen-lockfile
+          package-manager-cache: false # never use caching in release builds - uses: oven-sh/setup-bun@v2
+      
       - run: bun run --cwd apps/cli build
+      
       - id: changesets
         uses: changesets/action@v1
         with:
