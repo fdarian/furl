@@ -1,7 +1,7 @@
-import { Furl } from '@furl/core';
+import { Furl, FurlConfigService } from '@furl/core';
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
-import { providersCommand } from './providers';
+import { providersCommand, warnLegacyProvider } from './providers';
 
 const splitResolverTokens = (value: string): readonly string[] => {
   const tokens = value.split(',').map((token) => token.trim());
@@ -43,6 +43,10 @@ export const rootCommand = Command.make(
         yield* Console.log('       furl providers');
         return;
       }
+
+      const configService = yield* FurlConfigService;
+      const configValue = yield* configService.read;
+      yield* warnLegacyProvider(configValue);
 
       const furl = yield* Furl;
       const result = yield* furl.fetch(config.url.value, {

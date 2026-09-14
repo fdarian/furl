@@ -1,7 +1,17 @@
-import type { ProviderName } from '@furl/core';
+import type { FurlConfig, ProviderName } from '@furl/core';
 import { FurlConfigService, insertProviderToken, Secrets } from '@furl/core';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/unstable/cli';
+
+export const warnLegacyProvider = (config: FurlConfig) => {
+  if (config.provider === undefined) {
+    return Effect.void;
+  }
+
+  return Console.error(
+    `↳ config.json's "provider" field ("${config.provider}") is deprecated; use the "order" field instead ("order" takes precedence when both are present). Run \`furl providers\` to persist the migration and drop the field.`,
+  );
+};
 
 const getProviderStatusTitle = (
   provider: ProviderName,
@@ -98,7 +108,10 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
         yield* secrets.delete(provider);
         yield* Console.log(`Deleted ${provider} key.`);
 
-        if (activeProvider === provider) {
+        if (
+          Option.isSome(activeProvider) &&
+          activeProvider.value === provider
+        ) {
           yield* putProviderInOrder('jina');
           yield* Console.log(
             'jina is now your default provider because the active provider key was deleted.',
@@ -161,6 +174,8 @@ export const providersCommand = Command.make('providers', {}, () =>
   Effect.gen(function* () {
     const secrets = yield* Secrets;
     const config = yield* FurlConfigService;
+    const configValue = yield* config.read;
+    yield* warnLegacyProvider(configValue);
     const activeProvider = yield* config.resolveProvider(Option.none());
     const jinaKey = yield* secrets.get('jina');
     const exaKey = yield* secrets.get('exa');
@@ -171,7 +186,7 @@ export const providersCommand = Command.make('providers', {}, () =>
         {
           title: getProviderStatusTitle(
             'jina',
-            activeProvider === 'jina',
+            Option.isSome(activeProvider) && activeProvider.value === 'jina',
             jinaKey !== null,
           ),
           value: 'jina' as const,
@@ -179,7 +194,7 @@ export const providersCommand = Command.make('providers', {}, () =>
         {
           title: getProviderStatusTitle(
             'exa',
-            activeProvider === 'exa',
+            Option.isSome(activeProvider) && activeProvider.value === 'exa',
             exaKey !== null,
           ),
           value: 'exa' as const,
@@ -187,7 +202,8 @@ export const providersCommand = Command.make('providers', {}, () =>
         {
           title: getProviderStatusTitle(
             'firecrawl',
-            activeProvider === 'firecrawl',
+            Option.isSome(activeProvider) &&
+              activeProvider.value === 'firecrawl',
             firecrawlKey !== null,
           ),
           value: 'firecrawl' as const,
