@@ -15,7 +15,6 @@ export type {
   PluginDiscoveryShape,
 } from './plugin/discovery.ts';
 export {
-  discoverPlugins,
   getPluginsDirectoryPath,
   loadPluginManifest,
   PluginDiscovery,
