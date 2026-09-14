@@ -72,6 +72,13 @@ export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFail
   }
 }
 
+export class PluginLoadError extends Schema.TaggedErrorClass<PluginLoadError>(
+  'furl/PluginLoadError',
+)('PluginLoadError', {
+  path: Schema.String,
+  cause: Schema.Defect(),
+}) {}
+
 export const describeCause = (cause: unknown): string => {
   if (cause instanceof Error) {
     return cause.message;
