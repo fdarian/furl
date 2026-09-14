@@ -37,9 +37,7 @@ export const runResolvers = (
       );
 
       if (outcome._tag === 'success') {
-        const source =
-          resolver.source === undefined ? resolver.id : resolver.source;
-        return { markdown: outcome.markdown, source: source };
+        return { markdown: outcome.markdown, source: resolver.id };
       }
 
       if (outcome._tag === 'failure') {

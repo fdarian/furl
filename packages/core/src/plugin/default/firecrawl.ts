@@ -13,7 +13,6 @@ export const firecrawlResolver = (
   secrets: SecretsService,
 ): Resolver => ({
   id: 'firecrawl',
-  source: 'provider:firecrawl',
   isDefault: true,
   match: null,
   specificity: matchAnySpecificity,

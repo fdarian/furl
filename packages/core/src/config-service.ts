@@ -4,13 +4,30 @@ import { ConfigError } from './errors.ts';
 import type { ProviderName } from './provider-name.ts';
 import { providerSchema } from './provider-name.ts';
 
+const pluginConfigValueSchema = Schema.Record(Schema.String, Schema.Unknown);
+
 const furlConfigSchema = Schema.Struct({
   provider: Schema.optional(providerSchema),
+  order: Schema.optional(Schema.Array(Schema.String)),
+  plugins: Schema.optional(
+    Schema.Record(Schema.String, pluginConfigValueSchema),
+  ),
 });
+
+export type PluginConfigValue = Record<string, unknown>;
 
 export type FurlConfig = {
   provider?: ProviderName | undefined;
+  order?: readonly string[] | undefined;
+  plugins?: Readonly<Record<string, PluginConfigValue>> | undefined;
 };
+
+export const legacyOrder = (provider: ProviderName): readonly string[] => [
+  'default:raw',
+  'default:direct',
+  'default:md-suffix',
+  `default:${provider}`,
+];
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
 
@@ -46,6 +63,10 @@ export interface FurlConfigServiceShape {
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
   ) => Effect.Effect<ProviderName, ConfigError>;
+  resolveOrder: Effect.Effect<readonly string[], ConfigError>;
+  pluginArgs: (
+    id: string,
+  ) => Effect.Effect<PluginConfigValue | undefined, ConfigError>;
   write: (config: FurlConfig) => Effect.Effect<void, ConfigError>;
 }
 
@@ -91,6 +112,20 @@ export const FurlConfigServiceLive = Layer.effect(
           }
 
           return 'jina';
+        }),
+      resolveOrder: Effect.gen(function* () {
+        const config = yield* read;
+
+        if (config.order !== undefined) {
+          return config.order;
+        }
+
+        return legacyOrder(config.provider ?? 'jina');
+      }),
+      pluginArgs: (id: string) =>
+        Effect.gen(function* () {
+          const config = yield* read;
+          return config.plugins?.[id];
         }),
       write: (config: FurlConfig) =>
         Effect.gen(function* () {

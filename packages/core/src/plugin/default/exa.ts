@@ -13,7 +13,6 @@ export const exaResolver = (
   secrets: SecretsService,
 ): Resolver => ({
   id: 'exa',
-  source: 'provider:exa',
   isDefault: true,
   match: null,
   specificity: matchAnySpecificity,

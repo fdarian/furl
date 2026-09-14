@@ -8,7 +8,6 @@ export type Resolver = {
   isDefault: boolean;
   match: MatchPattern | null;
   specificity: number;
-  source?: string;
   run: (url: URL) => Effect.Effect<ResolveOutcome, ResolverError>;
 };
 
