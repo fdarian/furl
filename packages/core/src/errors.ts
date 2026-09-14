@@ -35,7 +35,11 @@ export class ConfigError extends Schema.TaggedError<ConfigError>(
   'furl/ConfigError',
 )('ConfigError', {
   cause: Schema.Defect(),
-}) {}
+}) {
+  override get message(): string {
+    return describeCause(this.cause);
+  }
+}
 
 export class ResolverError extends Schema.TaggedError<ResolverError>(
   'furl/ResolverError',

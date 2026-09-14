@@ -7,6 +7,23 @@ export type HttpClientService = Context.Service.Shape<
   typeof HttpClient.HttpClient
 >;
 
+export const defaultResolverNames = [
+  'raw',
+  'direct',
+  'md-suffix',
+  'jina',
+  'firecrawl',
+  'exa',
+] as const;
+
+export type DefaultResolverName = (typeof defaultResolverNames)[number];
+
+export const defaultWildcardResolverNames = [
+  'raw',
+  'direct',
+  'md-suffix',
+] as const;
+
 export const fileExtensionPattern = /\.[a-z0-9]+$/i;
 
 const responseIsMarkdown = (contentType: string | undefined): boolean => {
