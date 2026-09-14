@@ -22,7 +22,12 @@ export type FurlConfig = {
   plugins?: Readonly<Record<string, PluginConfigValue>> | undefined;
 };
 
-const defaultOrder: readonly string[] = ['default:*'];
+export const legacyOrder = (provider: ProviderName): readonly string[] => [
+  'default:raw',
+  'default:direct',
+  'default:md-suffix',
+  `default:${provider}`,
+];
 
 const decodeConfig = Schema.decodeUnknownEffect(furlConfigSchema);
 
@@ -110,7 +115,12 @@ export const FurlConfigServiceLive = Layer.effect(
         }),
       resolveOrder: Effect.gen(function* () {
         const config = yield* read;
-        return config.order ?? defaultOrder;
+
+        if (config.order !== undefined) {
+          return config.order;
+        }
+
+        return legacyOrder(config.provider ?? 'jina');
       }),
       pluginArgs: (id: string) =>
         Effect.gen(function* () {

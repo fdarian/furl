@@ -43,7 +43,7 @@ describe('FurlConfigService', () => {
     );
   };
 
-  it('defaults order to the keyless built-ins', async () => {
+  it('defaults order to the legacy resolver chain', async () => {
     const order = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
@@ -51,7 +51,12 @@ describe('FurlConfigService', () => {
       }),
     );
 
-    expect(order).toEqual(['default:*']);
+    expect(order).toEqual([
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
+      'default:jina',
+    ]);
   });
 
   it('reads an explicit order array unchanged', async () => {
@@ -121,7 +126,12 @@ describe('FurlConfigService', () => {
     expect(result).toEqual({
       value: { provider: 'exa' },
       provider: 'exa',
-      order: ['default:*'],
+      order: [
+        'default:raw',
+        'default:direct',
+        'default:md-suffix',
+        'default:exa',
+      ],
     });
   });
 

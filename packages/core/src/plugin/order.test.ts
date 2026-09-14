@@ -28,7 +28,14 @@ const makeConfigStub = (
 ): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: options.order, plugins: options.plugins }),
   resolveProvider: () => Effect.succeed('jina'),
-  resolveOrder: Effect.succeed(options.order ?? ['default:*']),
+  resolveOrder: Effect.succeed(
+    options.order ?? [
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
+      'default:jina',
+    ],
+  ),
   pluginArgs: (id) => Effect.succeed(options.plugins?.[id]),
   write: () => Effect.succeed(undefined),
 });
@@ -166,6 +173,22 @@ describe('buildResolverList', () => {
 
     expect(error._tag).toBe('ConfigError');
     expect(String(error.cause)).toContain('missing');
+  });
+
+  it('reports a clear config error when plugins are disabled for a plugin token', async () => {
+    const error = await runFail(
+      buildResolverList(
+        makeConfigStub({ order: ['plugin:alpha'] }),
+        secrets,
+        url,
+        defaultResolvers,
+        [],
+      ),
+    );
+
+    expect(error.message).toBe(
+      'Unknown or undiscovered plugin "alpha" in order',
+    );
   });
 
   it('keeps the first occurrence when tokens duplicate a resolver', async () => {

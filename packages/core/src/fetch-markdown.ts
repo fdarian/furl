@@ -1,8 +1,12 @@
 import { Context, Effect, Layer } from 'effect';
 import { HttpClient } from 'effect/unstable/http';
 
-import type { FurlConfig, FurlConfigServiceShape } from './config-service.ts';
-import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
+import type { FurlConfigServiceShape } from './config-service.ts';
+import {
+  FurlConfigService,
+  FurlConfigServiceLive,
+  legacyOrder,
+} from './config-service.ts';
 import type {
   AllResolversFailed,
   ConfigError,
@@ -43,32 +47,26 @@ export type FurlError =
 type HttpClientService = Context.Service.Shape<typeof HttpClient.HttpClient>;
 type PluginDiscoveryService = Context.Service.Shape<typeof PluginDiscovery>;
 
-const legacyOrder = (provider: ProviderName): readonly string[] => [
-  'default:raw',
-  'default:direct',
-  'default:md-suffix',
-  `default:${provider}`,
-];
-
 const isPluginToken = (token: string): boolean => token.startsWith('plugin:');
 
+export const shouldDiscoverPlugins = (
+  order: readonly string[],
+  pluginsDisabled: boolean | undefined,
+): boolean => pluginsDisabled !== true && order.some(isPluginToken);
+
 const effectiveOrder = (
-  config: FurlConfig,
+  config: FurlConfigServiceShape,
   options: FetchOptions,
-): readonly string[] => {
+): Effect.Effect<readonly string[], ConfigError> => {
   if (options.pluginToken !== undefined) {
-    return [options.pluginToken];
+    return Effect.succeed([options.pluginToken]);
   }
 
   if (options.forcedProvider !== undefined) {
-    return legacyOrder(options.forcedProvider);
+    return Effect.succeed(legacyOrder(options.forcedProvider));
   }
 
-  if (config.order !== undefined) {
-    return config.order;
-  }
-
-  return legacyOrder(config.provider ?? 'jina');
+  return config.resolveOrder;
 };
 
 const fetchMarkdown = (
@@ -93,15 +91,14 @@ const fetchMarkdown = (
         new FetchError({ url: url, status: undefined, cause: cause }),
     });
 
-    const configValue = yield* config.read;
     const defaultResolvers = createDefaultResolvers(client, secrets);
-    const order = effectiveOrder(configValue, options);
-    const requiresPluginDiscovery = order.some(isPluginToken);
-    const discoveredPlugins =
-      options.pluginsDisabled === true ||
-      (options.forcedProvider !== undefined && !requiresPluginDiscovery)
-        ? []
-        : yield* discovery.discover;
+    const order = yield* effectiveOrder(config, options);
+    const discoveredPlugins = shouldDiscoverPlugins(
+      order,
+      options.pluginsDisabled,
+    )
+      ? yield* discovery.discover
+      : [];
     const resolverList = yield* buildResolverList(
       config,
       secrets,
