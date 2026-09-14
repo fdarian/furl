@@ -19,29 +19,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      
+
       - name: Setup
         uses: ./.github/actions/setup
-      
+
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: "24"
           package-manager-cache: false # never use caching in release builds - uses: oven-sh/setup-bun@v2
-      
+
       - run: bun run --cwd apps/cli build
-      
+
       - id: changesets
         uses: changesets/action@v1
         with:
-          version: bun run ci:version
-          publish: bun run ci:release
+          version: pnpm run ci:version
+          publish: pnpm run ci:release
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build binaries
         if: steps.changesets.outputs.published == 'true'
-        run: bun run --cwd apps/cli build:binaries
+        run: cd apps/cli && pnpm run build:binaries
 
       - name: Upload release assets
         if: steps.changesets.outputs.published == 'true'
@@ -57,6 +57,6 @@ jobs:
         if: steps.changesets.outputs.published == 'true'
         run: |
           VERSION="${{ fromJSON(steps.changesets.outputs.publishedPackages)[0].version }}"
-          VERSION="$VERSION" bun run --cwd apps/cli scripts/update-homebrew.ts
+          cd apps/cli && VERSION="$VERSION" pnpm run scripts/update-homebrew.ts
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
