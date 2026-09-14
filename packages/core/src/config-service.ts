@@ -146,6 +146,7 @@ export interface FurlConfigServiceShape {
   resolveProvider: (
     providerOverride: Option.Option<ProviderName>,
   ) => Effect.Effect<ProviderName, ConfigError>;
+  /** The resolver precedence chain, defaulting to the keyless built-ins. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
   pluginArgs: (
     id: string,
@@ -196,6 +197,11 @@ export const FurlConfigServiceLive = Layer.effect(
       return migrateLegacyProvider(decoded);
     });
 
+    const resolveOrder = Effect.gen(function* () {
+      const config = yield* read;
+      return config.order ?? defaultOrder;
+    });
+
     return {
       read: read,
       resolveProvider: (providerOverride: Option.Option<ProviderName>) =>
@@ -204,9 +210,7 @@ export const FurlConfigServiceLive = Layer.effect(
             return providerOverride.value;
           }
 
-          const config = yield* read;
-
-          const order = config.order ?? defaultOrder;
+          const order = yield* resolveOrder;
           for (const entry of order) {
             const provider = providerNames.find(
               (candidate) => providerOrderToken(candidate) === entry,
@@ -218,10 +222,7 @@ export const FurlConfigServiceLive = Layer.effect(
 
           return 'jina';
         }),
-      resolveOrder: Effect.gen(function* () {
-        const config = yield* read;
-        return config.order ?? defaultOrder;
-      }),
+      resolveOrder: resolveOrder,
       pluginArgs: (id: string) =>
         Effect.gen(function* () {
           const config = yield* read;
