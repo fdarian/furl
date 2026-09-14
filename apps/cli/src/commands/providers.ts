@@ -1,9 +1,10 @@
-import { FurlConfigService, Secrets } from '@furl/core';
+import type { ProviderName } from '@furl/core';
+import { FurlConfigService, insertProviderToken, Secrets } from '@furl/core';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/unstable/cli';
 
 const getProviderStatusTitle = (
-  provider: 'jina' | 'exa' | 'firecrawl',
+  provider: ProviderName,
   isDefault: boolean,
   keyIsSet: boolean,
 ): string => {
@@ -34,10 +35,20 @@ const getProviderStatusTitle = (
   return keyIsSet ? 'firecrawl  (key set)' : 'firecrawl  (not set)';
 };
 
-const setDefaultProvider = (provider: 'jina' | 'exa' | 'firecrawl') =>
+const putProviderInOrder = (provider: ProviderName) =>
   Effect.gen(function* () {
-    const config = yield* FurlConfigService;
-    yield* config.write({ provider: provider });
+    const configService = yield* FurlConfigService;
+    const config = yield* configService.read;
+    const order = yield* configService.resolveOrder;
+    yield* configService.write({
+      order: insertProviderToken(order, provider),
+      plugins: config.plugins,
+    });
+  });
+
+const setDefaultProvider = (provider: ProviderName) =>
+  Effect.gen(function* () {
+    yield* putProviderInOrder(provider);
     yield* Console.log(`${provider} is now your default provider.`);
   });
 
@@ -88,7 +99,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
         yield* Console.log(`Deleted ${provider} key.`);
 
         if (activeProvider === provider) {
-          yield* config.write({ provider: 'jina' });
+          yield* putProviderInOrder('jina');
           yield* Console.log(
             'jina is now your default provider because the active provider key was deleted.',
           );
