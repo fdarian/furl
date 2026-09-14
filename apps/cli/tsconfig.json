@@ -1,7 +1,6 @@
 {
   "extends": "@repo/config/tsconfig-server",
   "compilerOptions": {
-    "baseUrl": ".",
     "lib": ["ESNext"],
     "paths": {
       "#/*": ["./src/*"]
