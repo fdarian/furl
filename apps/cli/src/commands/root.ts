@@ -3,7 +3,7 @@ import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 import { providersCommand } from './providers';
 
-const providerFlag = Flag.choice('provider', [
+const providerFlag = Flag.Literals('provider', [
   'jina',
   'exa',
   'firecrawl',
@@ -13,7 +13,7 @@ const providerFlag = Flag.choice('provider', [
   Flag.withDescription('Override the configured fallback provider'),
 );
 
-const urlArgument = Argument.string('url').pipe(
+const urlArgument = Argument.String('url').pipe(
   Argument.optional,
   Argument.withDescription('URL to fetch'),
 );

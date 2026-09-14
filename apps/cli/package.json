@@ -30,9 +30,9 @@
     "check:lint": "biome check ."
   },
   "devDependencies": {
-    "@effect/platform-bun": "4.0.0-beta.83",
+    "@effect/platform-bun": "catalog:",
     "@furl/core": "workspace:*",
     "@repo/config": "workspace:*",
-    "effect": "4.0.0-beta.83"
+    "effect": "catalog:"
   }
 }

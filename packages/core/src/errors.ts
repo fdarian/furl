@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-export class FetchError extends Schema.TaggedErrorClass<FetchError>(
+export class FetchError extends Schema.TaggedError<FetchError>(
   'furl/FetchError',
 )('FetchError', {
   url: Schema.String,
@@ -8,14 +8,14 @@ export class FetchError extends Schema.TaggedErrorClass<FetchError>(
   cause: Schema.Defect(),
 }) {}
 
-export class ProviderError extends Schema.TaggedErrorClass<ProviderError>(
+export class ProviderError extends Schema.TaggedError<ProviderError>(
   'furl/ProviderError',
 )('ProviderError', {
   provider: Schema.String,
   cause: Schema.Defect(),
 }) {}
 
-export class NoProviderKey extends Schema.TaggedErrorClass<NoProviderKey>(
+export class NoProviderKey extends Schema.TaggedError<NoProviderKey>(
   'furl/NoProviderKey',
 )('NoProviderKey', {
   provider: Schema.String,
@@ -25,19 +25,19 @@ export class NoProviderKey extends Schema.TaggedErrorClass<NoProviderKey>(
   }
 }
 
-export class KeychainError extends Schema.TaggedErrorClass<KeychainError>(
+export class KeychainError extends Schema.TaggedError<KeychainError>(
   'furl/KeychainError',
 )('KeychainError', {
   cause: Schema.Defect(),
 }) {}
 
-export class ConfigError extends Schema.TaggedErrorClass<ConfigError>(
+export class ConfigError extends Schema.TaggedError<ConfigError>(
   'furl/ConfigError',
 )('ConfigError', {
   cause: Schema.Defect(),
 }) {}
 
-export class ResolverError extends Schema.TaggedErrorClass<ResolverError>(
+export class ResolverError extends Schema.TaggedError<ResolverError>(
   'furl/ResolverError',
 )('ResolverError', {
   id: Schema.String,
@@ -48,7 +48,7 @@ export class ResolverError extends Schema.TaggedErrorClass<ResolverError>(
   }
 }
 
-export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFailed>(
+export class AllResolversFailed extends Schema.TaggedError<AllResolversFailed>(
   'furl/AllResolversFailed',
 )('AllResolversFailed', {
   url: Schema.String,
@@ -72,7 +72,7 @@ export class AllResolversFailed extends Schema.TaggedErrorClass<AllResolversFail
   }
 }
 
-export class PluginLoadError extends Schema.TaggedErrorClass<PluginLoadError>(
+export class PluginLoadError extends Schema.TaggedError<PluginLoadError>(
   'furl/PluginLoadError',
 )('PluginLoadError', {
   path: Schema.String,

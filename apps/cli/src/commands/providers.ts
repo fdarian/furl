@@ -44,7 +44,7 @@ const setDefaultProvider = (provider: 'jina' | 'exa' | 'firecrawl') =>
 const saveProviderKey = (provider: 'exa' | 'firecrawl') =>
   Effect.gen(function* () {
     const secrets = yield* Secrets;
-    const key = yield* Prompt.password({
+    const key = yield* Prompt.Password({
       message: `Enter ${provider} API key:`,
     });
     yield* secrets.set(provider, Redacted.value(key));
@@ -57,7 +57,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
     const secrets = yield* Secrets;
     const config = yield* FurlConfigService;
     const activeProvider = yield* config.resolveProvider(Option.none());
-    const action = yield* Prompt.select({
+    const action = yield* Prompt.Select({
       message: `Manage ${provider}`,
       choices: [
         { title: 'Set as default', value: 'default' as const },
@@ -78,7 +78,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
     }
 
     if (action === 'delete') {
-      const confirmed = yield* Prompt.confirm({
+      const confirmed = yield* Prompt.Confirm({
         message: `Delete ${provider} key?`,
         initial: false,
       });
@@ -101,7 +101,7 @@ const manageJinaProvider = () =>
   Effect.gen(function* () {
     const secrets = yield* Secrets;
     const existingKey = yield* secrets.get('jina');
-    const action = yield* Prompt.select({
+    const action = yield* Prompt.Select({
       message:
         'Jina is keyless by default. Manage an optional key for higher limits?',
       choices:
@@ -125,7 +125,7 @@ const manageJinaProvider = () =>
     }
 
     if (action === 'set' || action === 'replace') {
-      const key = yield* Prompt.password({
+      const key = yield* Prompt.Password({
         message: 'Enter jina API key:',
       });
       yield* secrets.set('jina', Redacted.value(key));
@@ -134,7 +134,7 @@ const manageJinaProvider = () =>
     }
 
     if (action === 'delete') {
-      const confirmed = yield* Prompt.confirm({
+      const confirmed = yield* Prompt.Confirm({
         message: 'Delete jina key?',
         initial: false,
       });
@@ -154,7 +154,7 @@ export const providersCommand = Command.make('providers', {}, () =>
     const jinaKey = yield* secrets.get('jina');
     const exaKey = yield* secrets.get('exa');
     const firecrawlKey = yield* secrets.get('firecrawl');
-    const provider = yield* Prompt.select({
+    const provider = yield* Prompt.Select({
       message: 'Select a provider',
       choices: [
         {

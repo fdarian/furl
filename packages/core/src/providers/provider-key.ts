@@ -12,7 +12,7 @@ export const getOptionalProviderKey = (
   environmentVariableName: string,
 ) =>
   Effect.gen(function* () {
-    const configuredValue = yield* Config.string(environmentVariableName).pipe(
+    const configuredValue = yield* Config.String(environmentVariableName).pipe(
       Config.option,
       Effect.mapError(
         (cause) => new ProviderError({ provider: provider, cause: cause }),

@@ -5,6 +5,8 @@ enableGlobalVirtualStore: true
 
 catalog:
   typescript: ^7.0.2
+  effect: 4.0.0-rc.115
+  "@effect/platform-bun": 4.0.0-rc.115
 allowBuilds:
   es5-ext: false
   esbuild: true
