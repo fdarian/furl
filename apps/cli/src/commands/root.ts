@@ -1,6 +1,7 @@
 import { Furl, FurlConfigService } from '@furl/core';
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
+import { pluginsCommand } from './plugins/root';
 import { providersCommand, warnLegacyProvider } from './providers';
 
 const splitResolverTokens = (value: string): readonly string[] => {
@@ -40,6 +41,7 @@ export const rootCommand = Command.make(
     Effect.gen(function* () {
       if (Option.isNone(config.url)) {
         yield* Console.log('Usage: furl <url> [--resolvers <tokens>]');
+        yield* Console.log('       furl plugins');
         yield* Console.log('       furl providers');
         return;
       }
@@ -59,6 +61,6 @@ export const rootCommand = Command.make(
       yield* Console.error(`↳ via ${result.source}`);
     }),
 ).pipe(
-  Command.withSubcommands([providersCommand]),
+  Command.withSubcommands([pluginsCommand, providersCommand]),
   Command.withDescription('Fetch a URL and return LLM-optimized markdown'),
 );
