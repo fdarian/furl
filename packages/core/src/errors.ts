@@ -90,9 +90,12 @@ export class PluginInstallError extends Schema.TaggedError<PluginInstallError>(
   cause: Schema.Defect(),
 }) {
   override get message(): string {
-    return `Failed to install plugin from ${this.url}: ${describeCause(this.cause)}`;
+    return `Failed to install plugin from ${redactUrlUserInfo(this.url)}: ${redactUrlUserInfo(describeCause(this.cause))}`;
   }
 }
+
+const redactUrlUserInfo = (value: string): string =>
+  value.replace(/(https?|ssh|git):\/\/[^/\s@]+@/gi, '$1://[redacted]@');
 
 export const describeCause = (cause: unknown): string => {
   if (cause instanceof Error) {

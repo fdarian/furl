@@ -80,7 +80,9 @@ export const pluginsInstallCommand = Command.make(
         const confirmed = yield* Prompt.Confirm({
           message: `Continue installing "${displayName}"? This will run the plugin's code.`,
           initial: false,
-        });
+        }).pipe(
+          Effect.tapError(() => removeFolder(fileSystem, installed.folderPath)),
+        );
 
         if (!confirmed) {
           yield* removeFolder(fileSystem, installed.folderPath);

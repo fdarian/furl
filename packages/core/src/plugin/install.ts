@@ -213,7 +213,9 @@ export const validateInstalledPlugin = (
     );
 
     const isDuplicate = existingPlugins.some(
-      (existing) => existing.manifest.name === plugin.manifest.name,
+      (existing) =>
+        existing.folder !== installed.folderPath &&
+        existing.manifest.name === plugin.manifest.name,
     );
 
     if (isDuplicate) {

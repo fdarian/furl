@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem, Option } from 'effect';
+import { PluginInstallError } from '../errors.ts';
 import type { PluginInstallResult } from './install.ts';
 import { derivePluginFolderName, validateInstalledPlugin } from './install.ts';
 import type { PluginLoader } from './loader.ts';
@@ -112,6 +113,22 @@ describe('derivePluginFolderName', () => {
   });
 });
 
+describe('PluginInstallError', () => {
+  it('redacts URL userinfo from its display message', () => {
+    const error = new PluginInstallError({
+      url: 'https://token:secret@example.com/plugin',
+      cause: new Error(
+        "fatal: repository 'https://token:secret@example.com/plugin' not found",
+      ),
+    });
+
+    expect(error.message).toBe(
+      "Failed to install plugin from https://[redacted]@example.com/plugin: fatal: repository 'https://[redacted]@example.com/plugin' not found",
+    );
+    expect(error.message).not.toContain('secret');
+  });
+});
+
 describe('validateInstalledPlugin', () => {
   let tempDir: string;
 
@@ -140,6 +157,31 @@ describe('validateInstalledPlugin', () => {
 
     expect(plugin.name).toBe('alpha');
     expect(plugin.entrypoint).toBe(entrypoint);
+  });
+
+  it('does not treat the cloned folder as an existing duplicate', async () => {
+    const folder = path.join(tempDir, 'alpha');
+    const entrypoint = path.join(folder, 'index.ts');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(entrypoint, '');
+
+    const plugin = await runWithFileSystem((fileSystem) =>
+      validateInstalledPlugin(
+        fileSystem,
+        makeLoaderStub({ [entrypoint]: validManifest('alpha') }),
+        makeInstalled(folder),
+        [
+          {
+            name: 'alpha',
+            folder: folder,
+            entrypoint: entrypoint,
+            manifest: validManifest('alpha'),
+          },
+        ],
+      ),
+    );
+
+    expect(plugin.name).toBe('alpha');
   });
 
   it('rejects an invalid manifest and duplicate manifest names', async () => {

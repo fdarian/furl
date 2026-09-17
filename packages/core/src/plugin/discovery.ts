@@ -32,6 +32,44 @@ const decodePackageJson = Schema.decodeUnknownEffect(
   Schema.fromJsonString(packageJsonSchema),
 );
 
+/** Rejects entrypoints whose symlinks or parent traversal leave the plugin folder. */
+const resolveContainedEntrypoint = (
+  fileSystem: FileSystem.FileSystem,
+  folderPath: string,
+  entrypointPath: string,
+  outsideMessage: string,
+): Effect.Effect<string, PluginLoadError> =>
+  Effect.gen(function* () {
+    const realFolderPath = yield* fileSystem
+      .realPath(folderPath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new PluginLoadError({ path: folderPath, cause: cause }),
+        ),
+      );
+    const realEntrypointPath = yield* fileSystem
+      .realPath(entrypointPath)
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new PluginLoadError({ path: entrypointPath, cause: cause }),
+        ),
+      );
+
+    const isContained =
+      realEntrypointPath === realFolderPath ||
+      realEntrypointPath.startsWith(`${realFolderPath}/`);
+
+    if (!isContained) {
+      return yield* new PluginLoadError({
+        path: entrypointPath,
+        cause: new Error(outsideMessage),
+      });
+    }
+
+    return entrypointPath;
+  });
+
 /** Absolute path to `~/.config/furl/plugins`. */
 export const getPluginsDirectoryPath = getConfigDirectoryPath.pipe(
   Effect.map(
@@ -58,7 +96,12 @@ const resolveEntrypoint = (
       );
 
     if (defaultEntrypointExists) {
-      return defaultEntrypointPath;
+      return yield* resolveContainedEntrypoint(
+        fileSystem,
+        folderPath,
+        defaultEntrypointPath,
+        `Entrypoint ("${defaultEntrypointPath}") resolves outside the plugin folder`,
+      );
     }
 
     const packageJsonPath = `${folderPath}/${packageJsonFileName}`;
@@ -101,36 +144,12 @@ const resolveEntrypoint = (
     }
 
     const entrypointPath = `${folderPath}/${parsedPackageJson.main}`;
-    const realFolderPath = yield* fileSystem
-      .realPath(folderPath)
-      .pipe(
-        Effect.mapError(
-          (cause) => new PluginLoadError({ path: folderPath, cause: cause }),
-        ),
-      );
-    const realEntrypointPath = yield* fileSystem
-      .realPath(entrypointPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new PluginLoadError({ path: entrypointPath, cause: cause }),
-        ),
-      );
-
-    const isContained =
-      realEntrypointPath === realFolderPath ||
-      realEntrypointPath.startsWith(`${realFolderPath}/`);
-
-    if (!isContained) {
-      return yield* new PluginLoadError({
-        path: entrypointPath,
-        cause: new Error(
-          `${packageJsonFileName}#main ("${parsedPackageJson.main}") resolves outside the plugin folder`,
-        ),
-      });
-    }
-
-    return entrypointPath;
+    return yield* resolveContainedEntrypoint(
+      fileSystem,
+      folderPath,
+      entrypointPath,
+      `${packageJsonFileName}#main ("${parsedPackageJson.main}") resolves outside the plugin folder`,
+    );
   });
 
 const validateManifest = (
