@@ -42,6 +42,18 @@ export const providerOrderTokens: ReadonlySet<string> = new Set(
   providerNames.map(providerOrderToken),
 );
 
+export const pluginOrderToken = (pluginName: string): string =>
+  `${pluginTokenPrefix}${pluginName}`;
+
+/** Puts a plugin first in the resolver order without duplicating its token. */
+export const insertPluginToken = (
+  order: readonly string[],
+  pluginName: string,
+): string[] => {
+  const token = pluginOrderToken(pluginName);
+  return [token, ...order.filter((entry) => entry !== token)];
+};
+
 /** Inserts a provider token after free probes and before other provider tokens. */
 export const insertProviderToken = (
   order: readonly string[],

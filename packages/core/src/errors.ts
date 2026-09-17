@@ -83,6 +83,17 @@ export class PluginLoadError extends Schema.TaggedError<PluginLoadError>(
   cause: Schema.Defect(),
 }) {}
 
+export class PluginInstallError extends Schema.TaggedError<PluginInstallError>(
+  'furl/PluginInstallError',
+)('PluginInstallError', {
+  url: Schema.String,
+  cause: Schema.Defect(),
+}) {
+  override get message(): string {
+    return `Failed to install plugin from ${this.url}: ${describeCause(this.cause)}`;
+  }
+}
+
 export const describeCause = (cause: unknown): string => {
   if (cause instanceof Error) {
     return cause.message;

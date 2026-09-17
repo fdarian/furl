@@ -1,7 +1,11 @@
 import { Context, Effect, FileSystem, Layer, Option, Schema } from 'effect';
 
 import { ConfigError } from './errors.ts';
-import { insertProviderToken, providerOrderToken } from './plugin/order.ts';
+import {
+  insertProviderToken,
+  pluginOrderToken,
+  providerOrderToken,
+} from './plugin/order.ts';
 import {
   type ProviderName,
   providerNames,
@@ -38,6 +42,29 @@ const normalizeConfig = (config: FurlConfig): FurlConfig => {
   return {
     order: order,
     ...(config.plugins === undefined ? {} : { plugins: config.plugins }),
+  };
+};
+
+export const removePluginConfig = (
+  config: FurlConfig,
+  pluginName: string,
+): FurlConfig => {
+  const order = config.order?.filter(
+    (entry) => entry !== pluginOrderToken(pluginName),
+  );
+  const plugins =
+    config.plugins === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(config.plugins).filter(
+            (entry) => entry[0] !== pluginName,
+          ),
+        );
+
+  return {
+    ...config,
+    ...(config.order === undefined ? {} : { order: order }),
+    ...(config.plugins === undefined ? {} : { plugins: plugins }),
   };
 };
 
