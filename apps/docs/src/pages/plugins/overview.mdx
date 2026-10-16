@@ -1,0 +1,40 @@
+# Plugins [What it is, why, and what it can do]
+
+furl resolves LLM-friendly websites nicely, but plenty of sites still need extra processing — parsing, for one — before their content is useful to an agent.
+
+A **plugin** lets you define your own handler for a given URL: how it fetches the content, and how it formats it.
+
+Plugins compose into the [fetch strategy](/fetch-strategy). A plugin either produces markdown, declines ("not mine"), or errors ("mine, but it failed").
+
+It can also [manage secrets securely](/plugins/getting-started#secrets).
+
+## A few ideas
+
+Plugins in furl serve two main purposes:
+
+1. **Fallback parsing**
+
+	For websites that can't serve markdown. Handing raw HTML to an agent burns tokens on markup it doesn't need.
+
+2. **Provider-specific**
+
+	Some providers (see the [examples](#examples) below) expose their content through an API, and the result can be shaped to carry only what matters.
+
+
+Probing and parsing is wasted work when you already know how a URL should be handled.
+
+### Examples
+
+1. **GitHub**
+
+	Use the GitHub API: return raw content for a direct link to a file, and a file tree plus README for repo and directory links.
+
+2. **X post**
+
+	Use the X API to return the post content along with its metrics, media URLs, and a few replies.
+
+## Next steps
+
+- [Getting Started](/plugins/getting-started) — install, configure, and enable plugins.
+- [Builtins](/fetch-strategy#additional-resolvers) — the built-in fetch strategies and providers that plugins run ahead of.
+- [Create your own](/plugins/create-your-own) — author a plugin with `definePlugin`.

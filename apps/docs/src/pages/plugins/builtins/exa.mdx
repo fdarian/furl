@@ -1,0 +1,34 @@
+# exa [Extracted page text]
+
+Sends the URL to [Exa](https://exa.ai) and returns the extracted body text.
+
+Exa gives you clean prose with the navigation and boilerplate stripped, but it's plain text — no headings, links, or lists survive. Reach for [firecrawl](/plugins/builtins/firecrawl) when structure matters.
+
+## Enable it
+
+```jsonc [~/.config/furl/config.json]
+{
+  "order": ["default:*", "default:exa"]
+}
+```
+
+Or force it for a single call:
+
+```sh
+furl https://example.com --plugin exa
+```
+
+## Adding a key
+
+Required — without one, exa declines and the chain moves on. furl reads `EXA_API_KEY` from the environment first, then falls back to the keychain:
+
+```sh
+furl secrets set exa
+```
+
+### Further reading
+
+:::details[What furl sends]
+
+`POST https://api.exa.ai/contents` with the key as `x-api-key` and a body of `{ "urls": [url], "text": true }`. The text is read from `results[0].text`.
+:::
