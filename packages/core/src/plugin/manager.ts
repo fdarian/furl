@@ -374,13 +374,13 @@ export const makePluginManager = (deps: PluginManagerDeps) => {
         return yield* new PluginNotFoundError({ name: name });
       }
 
-      // Config goes first so the plugin stops being referenced even if a later
-      // step fails; the remaining steps work from what was read above.
-      yield* deps.config.write(removePluginConfig(config, name));
+      // Secrets go before the config write: if the keychain fails the config
+      // still holds the refs, so a retry finds them again.
       yield* Effect.forEach(
         new Set(findPluginSecretNames(name, config.plugins?.[name])),
         (secretName) => deleteGenericSecret(deps.secrets, secretName),
       );
+      yield* deps.config.write(removePluginConfig(config, name));
       yield* fileSystem
         .remove(folder, { recursive: true, force: true })
         .pipe(

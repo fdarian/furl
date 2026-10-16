@@ -6,7 +6,8 @@ import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem, Option } from 'effect';
 
 import type { FurlConfig, FurlConfigServiceShape } from '../config-service.ts';
-import { ConfigError } from '../errors.ts';
+import { ConfigError, KeychainError } from '../errors.ts';
+import type { SecretsService } from '../secrets-service.ts';
 import type { PluginLoader } from './loader.ts';
 import type { RunGit } from './manager.ts';
 import {
@@ -258,7 +259,7 @@ describe('plugin manager', () => {
       config: FurlConfigServiceShape;
       runGit: RunGit;
       loader: PluginLoader['Service'];
-      secrets?: ReturnType<typeof makeSecretsStub>;
+      secrets?: SecretsService;
     },
     build: (
       manager: ReturnType<typeof makePluginManager>,
@@ -586,7 +587,7 @@ describe('plugin manager', () => {
     const uninstallWith = (
       config: ReturnType<typeof makeConfigStub>,
       name: string,
-      secrets = makeSecretsStub(),
+      secrets: SecretsService = makeSecretsStub(),
     ) =>
       runWithManager(
         {
@@ -701,22 +702,47 @@ describe('plugin manager', () => {
       },
     );
 
-    it('writes the config before touching secrets or the folder', async () => {
+    it('leaves the config and folder intact when deleting a secret fails, so a retry works', async () => {
+      const folder = writePlugin('alpha');
+      const initial = {
+        order: ['plugin:alpha'],
+        plugins: { alpha: { k: 'secret:alpha.k' } },
+      };
+      const config = makeConfigStub(initial);
+      const healthy = makeSecretsStub({ 'secret/alpha.k': 'v' });
+      const failing: SecretsService = {
+        ...healthy,
+        delete: () =>
+          Effect.fail(new KeychainError({ cause: new Error('locked') })),
+      };
+
+      const failed = await uninstallWith(config, 'alpha', failing);
+
+      expect(failed._tag === 'Failure' && failed.failure._tag).toBe(
+        'KeychainError',
+      );
+      expect(config.state.config).toEqual(initial);
+      expect(config.state.writes).toBe(0);
+      expect(fs.existsSync(folder)).toBe(true);
+
+      const retried = await uninstallWith(config, 'alpha', healthy);
+
+      expect(retried._tag).toBe('Success');
+      expect(await Effect.runPromise(healthy.get('secret/alpha.k'))).toBeNull();
+      expect(fs.existsSync(folder)).toBe(false);
+    });
+
+    it('keeps the folder when the config write fails', async () => {
       const folder = writePlugin('alpha');
       const config = makeConfigStub(
-        {
-          order: ['plugin:alpha'],
-          plugins: { alpha: { k: 'secret:alpha.k' } },
-        },
+        { order: ['plugin:alpha'], plugins: { alpha: {} } },
         { failWrite: true },
       );
-      const secrets = makeSecretsStub({ 'secret/alpha.k': 'v' });
 
-      const result = await uninstallWith(config, 'alpha', secrets);
+      const result = await uninstallWith(config, 'alpha');
 
       expect(result._tag).toBe('Failure');
       expect(fs.existsSync(folder)).toBe(true);
-      expect(await Effect.runPromise(secrets.get('secret/alpha.k'))).toBe('v');
     });
   });
 });
