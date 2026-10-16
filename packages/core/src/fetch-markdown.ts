@@ -15,8 +15,8 @@ import { runResolvers } from './plugin/engine.ts';
 import { PluginLoader } from './plugin/loader.ts';
 import {
   buildResolverList,
-  hasPluginToken,
   parseOrderTokens,
+  pluginNamesInOrder,
 } from './plugin/order.ts';
 import type { SecretsService } from './secrets-service.ts';
 import { Secrets, SecretsLive } from './secrets-service.ts';
@@ -70,9 +70,9 @@ export const fetchMarkdown = (
     const defaultResolvers = createDefaultResolvers(client, secrets);
     const order = yield* effectiveOrder(config, options);
     const parsedTokens = yield* parseOrderTokens(order);
-    const discoveredPlugins = hasPluginToken(parsedTokens)
-      ? yield* discovery.discover
-      : [];
+    const pluginNames = pluginNamesInOrder(parsedTokens);
+    const discoveredPlugins =
+      pluginNames.length > 0 ? yield* discovery.discover(pluginNames) : [];
     const resolverList = yield* buildResolverList(
       config,
       secrets,

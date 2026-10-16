@@ -5,7 +5,12 @@ import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem } from 'effect';
 
-import { discoverPlugins, loadPluginManifest } from './discovery.ts';
+import { PluginLoadError } from '../errors.ts';
+import {
+  discoverPlugins,
+  listInstalledPluginNames,
+  loadPluginManifest,
+} from './discovery.ts';
 import type { PluginLoader } from './loader.ts';
 
 const makeLoaderStub = (
@@ -300,7 +305,7 @@ describe('loadPluginManifest', () => {
   });
 });
 
-describe('discoverPlugins', () => {
+describe('plugin discovery', () => {
   let tempHome: string;
   let originalHome: string | undefined;
 
@@ -329,29 +334,209 @@ describe('discoverPlugins', () => {
     return folder;
   };
 
-  it('imports and returns a valid plugin folder', async () => {
-    const folder = writePluginFolder('a');
+  const makeRecordingLoader = (
+    manifestByFolderName: Readonly<Record<string, unknown>>,
+  ) => {
     const loaded: string[] = [];
     const loader: PluginLoader['Service'] = {
       load: (entrypointPath) => {
         loaded.push(entrypointPath);
-        return Effect.succeed(validManifest('a'));
+        return Effect.succeed(
+          manifestByFolderName[path.basename(path.dirname(entrypointPath))],
+        );
       },
     };
 
-    const plugins = await runWithFileSystem((fileSystem) =>
-      discoverPlugins(fileSystem, loader),
-    );
+    return { loader: loader, loaded: loaded };
+  };
 
-    expect(plugins.map((plugin) => plugin.name)).toEqual(['a']);
-    expect(loaded).toEqual([path.join(folder, 'index.ts')]);
+  const failingLoader: PluginLoader['Service'] = {
+    load: (entrypointPath) =>
+      Effect.die(new Error(`unexpected import of ${entrypointPath}`)),
+  };
+
+  describe('discoverPlugins', () => {
+    it('imports and returns a referenced plugin folder', async () => {
+      const folder = writePluginFolder('a');
+      const recording = makeRecordingLoader({ a: validManifest('a') });
+
+      const plugins = await runWithFileSystem((fileSystem) =>
+        discoverPlugins(fileSystem, recording.loader, ['a']),
+      );
+
+      expect(plugins.map((plugin) => plugin.name)).toEqual(['a']);
+      expect(recording.loaded).toEqual([path.join(folder, 'index.ts')]);
+    });
+
+    it('never imports folders that are not referenced', async () => {
+      writePluginFolder('wanted');
+      writePluginFolder('unwanted');
+      writePluginFolder('broken');
+      const recording = makeRecordingLoader({
+        wanted: validManifest('wanted'),
+        unwanted: validManifest('unwanted'),
+      });
+
+      await runWithFileSystem((fileSystem) =>
+        discoverPlugins(fileSystem, recording.loader, ['wanted']),
+      );
+
+      expect(
+        recording.loaded.map((entry) => path.basename(path.dirname(entry))),
+      ).toEqual(['wanted']);
+    });
+
+    it('imports a plugin referenced twice only once', async () => {
+      writePluginFolder('a');
+      const recording = makeRecordingLoader({ a: validManifest('a') });
+
+      const plugins = await runWithFileSystem((fileSystem) =>
+        discoverPlugins(fileSystem, recording.loader, ['a', 'a']),
+      );
+
+      expect(plugins).toHaveLength(1);
+      expect(recording.loaded).toHaveLength(1);
+    });
+
+    it('returns an empty list and imports nothing when no plugin is referenced', async () => {
+      writePluginFolder('a');
+
+      const plugins = await runWithFileSystem((fileSystem) =>
+        discoverPlugins(fileSystem, failingLoader, []),
+      );
+
+      expect(plugins).toEqual([]);
+    });
+
+    it('surfaces a referenced plugin that is not installed as a PluginLoadError', async () => {
+      const error = await runWithFileSystem((fileSystem) =>
+        Effect.flip(discoverPlugins(fileSystem, failingLoader, ['missing'])),
+      );
+
+      expect(error._tag).toBe('PluginLoadError');
+      expect(error.message).toContain('not installed');
+      expect(error.path).toBe(path.join(pluginsDirectory(), 'missing'));
+    });
+
+    it('surfaces an import failure as a PluginLoadError', async () => {
+      writePluginFolder('a');
+      const loader: PluginLoader['Service'] = {
+        load: (entrypointPath) =>
+          Effect.fail(
+            new PluginLoadError({
+              path: entrypointPath,
+              cause: new Error('boom'),
+            }),
+          ),
+      };
+
+      const error = await runWithFileSystem((fileSystem) =>
+        Effect.flip(discoverPlugins(fileSystem, loader, ['a'])),
+      );
+
+      expect(error._tag).toBe('PluginLoadError');
+      expect(error.message).toContain('boom');
+    });
+
+    it('surfaces an invalid manifest as a PluginLoadError', async () => {
+      writePluginFolder('a');
+      const recording = makeRecordingLoader({ a: { name: 'a' } });
+
+      const error = await runWithFileSystem((fileSystem) =>
+        Effect.flip(discoverPlugins(fileSystem, recording.loader, ['a'])),
+      );
+
+      expect(error._tag).toBe('PluginLoadError');
+    });
+
+    it('fails when the manifest name differs from the folder name', async () => {
+      writePluginFolder('a');
+      const recording = makeRecordingLoader({ a: validManifest('other') });
+
+      const error = await runWithFileSystem((fileSystem) =>
+        Effect.flip(discoverPlugins(fileSystem, recording.loader, ['a'])),
+      );
+
+      expect(error._tag).toBe('PluginLoadError');
+      expect(error.message).toContain('must match the manifest name');
+    });
+
+    it('rejects a folder that declares a different name, so duplicate names cannot occur', async () => {
+      writePluginFolder('a');
+      writePluginFolder('b');
+      const recording = makeRecordingLoader({
+        a: validManifest('a'),
+        b: validManifest('a'),
+      });
+
+      const error = await runWithFileSystem((fileSystem) =>
+        Effect.flip(discoverPlugins(fileSystem, recording.loader, ['a', 'b'])),
+      );
+
+      expect(error._tag).toBe('PluginLoadError');
+    });
+
+    it.each(['../outside', 'a/b', '/etc', 'Upper', '', '*', 'default:jina'])(
+      'rejects the plugin name %p before touching the filesystem',
+      async (name) => {
+        const touched: string[] = [];
+        const error = await runWithFileSystem((fileSystem) => {
+          const spyFileSystem = {
+            ...fileSystem,
+            exists: (target: string) => {
+              touched.push(target);
+              return fileSystem.exists(target);
+            },
+            stat: (target: string) => {
+              touched.push(target);
+              return fileSystem.stat(target);
+            },
+          } as FileSystem.FileSystem;
+
+          return Effect.flip(
+            discoverPlugins(spyFileSystem, failingLoader, [name]),
+          );
+        });
+
+        expect(error._tag).toBe('PluginLoadError');
+        expect(error.message).toContain('Invalid plugin name');
+        expect(touched).toEqual([]);
+      },
+    );
   });
 
-  it('returns an empty list when the plugins directory does not exist', async () => {
-    const plugins = await runWithFileSystem((fileSystem) =>
-      discoverPlugins(fileSystem, makeLoaderStub({})),
-    );
+  describe('listInstalledPluginNames', () => {
+    it('returns an empty list when the plugins directory does not exist', async () => {
+      const names = await runWithFileSystem((fileSystem) =>
+        listInstalledPluginNames(fileSystem),
+      );
 
-    expect(plugins).toEqual([]);
+      expect(names).toEqual([]);
+    });
+
+    it('lists valid plugin directories without importing anything', async () => {
+      writePluginFolder('beta');
+      writePluginFolder('alpha');
+      writePluginFolder('Not-Valid');
+      fs.writeFileSync(path.join(pluginsDirectory(), 'stray-file'), '');
+
+      const names = await runWithFileSystem((fileSystem) =>
+        listInstalledPluginNames(fileSystem),
+      );
+
+      expect(names).toEqual(['alpha', 'beta']);
+    });
+
+    it('lists a plugin folder even when its contents are broken', async () => {
+      fs.mkdirSync(path.join(pluginsDirectory(), 'broken'), {
+        recursive: true,
+      });
+
+      const names = await runWithFileSystem((fileSystem) =>
+        listInstalledPluginNames(fileSystem),
+      );
+
+      expect(names).toEqual(['broken']);
+    });
   });
 });

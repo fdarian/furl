@@ -1,37 +1,30 @@
 import { describe, expect, it } from 'bun:test';
+import { Option } from 'effect';
 
-import { registerInstalledPlugin } from './install';
+import { describePreview } from './install';
 
-describe('registerInstalledPlugin', () => {
-  it('registers a new plugin at the front of the effective order', () => {
-    const result = registerInstalledPlugin(
-      { plugins: { existing: { token: 'keep' } } },
-      ['default:*', 'default:jina'],
-      'new-plugin',
-    );
-
-    expect(result).toEqual({
-      order: ['plugin:new-plugin', 'default:*', 'default:jina'],
-      plugins: {
-        existing: { token: 'keep' },
-        'new-plugin': {},
-      },
-    });
+describe('describePreview', () => {
+  it('shows only the URL when package.json is absent', () => {
+    expect(
+      describePreview({
+        url: 'https://github.com/foo/bar',
+        packageName: Option.none(),
+        packageDescription: Option.none(),
+      }),
+    ).toEqual(['Source: https://github.com/foo/bar']);
   });
 
-  it('moves an existing plugin token to the front without duplicating it', () => {
-    const config = {
-      order: ['default:*', 'plugin:kept-plugin', 'plugin:kept-plugin'],
-      plugins: {
-        'kept-plugin': { token: 'keep' },
-      },
-    };
-
-    const result = registerInstalledPlugin(config, config.order, 'kept-plugin');
-
-    expect(result).toEqual({
-      order: ['plugin:kept-plugin', 'default:*'],
-      plugins: { 'kept-plugin': { token: 'keep' } },
-    });
+  it('adds the package name and description when present', () => {
+    expect(
+      describePreview({
+        url: 'https://github.com/foo/bar',
+        packageName: Option.some('furl-x'),
+        packageDescription: Option.some('does x'),
+      }),
+    ).toEqual([
+      'Source: https://github.com/foo/bar',
+      'Package: furl-x',
+      'Description: does x',
+    ]);
   });
 });

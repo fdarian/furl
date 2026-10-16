@@ -13,11 +13,13 @@ const makeConfig = (order: readonly string[]): FurlConfigServiceShape => ({
   write: () => Effect.die('unused'),
 });
 
-const makeDiscovery = (onDiscover: () => void) => ({
-  discover: Effect.sync(() => {
-    onDiscover();
-    return [];
-  }),
+const makeDiscovery = (onDiscover: (names: readonly string[]) => void) => ({
+  discover: (names: readonly string[]) =>
+    Effect.sync(() => {
+      onDiscover(names);
+      return [];
+    }),
+  installedNames: Effect.die('unused'),
 });
 
 const run = (
@@ -25,18 +27,24 @@ const run = (
   options: { resolvers?: readonly string[] } = {},
 ) => {
   let discoveries = 0;
+  const discoveredNames: string[][] = [];
   const effect = fetchMarkdown(
     makeHttpClientStub(() => new Response('# hi', { status: 200 })),
     makeConfig(order),
     makeSecretsStub(),
-    makeDiscovery(() => {
+    makeDiscovery((names) => {
       discoveries += 1;
+      discoveredNames.push([...names]);
     }) as PluginDiscovery['Service'],
     'https://example.com/file.md',
     options,
   );
 
-  return { effect: effect, discoveries: () => discoveries };
+  return {
+    effect: effect,
+    discoveries: () => discoveries,
+    discoveredNames: () => discoveredNames,
+  };
 };
 
 describe('fetchMarkdown', () => {
@@ -56,6 +64,19 @@ describe('fetchMarkdown', () => {
 
     expect(scenario.discoveries()).toBe(1);
     expect(error._tag).toBe('ConfigError');
+  });
+
+  it('asks discovery for only the plugins named in order', async () => {
+    const scenario = run([
+      'plugin:alpha',
+      'default:*',
+      'plugin:beta',
+      'plugin:alpha',
+    ]);
+
+    await Effect.runPromise(Effect.flip(scenario.effect));
+
+    expect(scenario.discoveredNames()).toEqual([['alpha', 'beta', 'alpha']]);
   });
 
   it('rejects an invalid token before running plugin discovery', async () => {

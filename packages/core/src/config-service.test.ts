@@ -229,4 +229,20 @@ describe('FurlConfigService', () => {
       plugins: { beta: { mode: 'fast' } },
     });
   });
+
+  it('drops the order key when removing the last token so the default applies', () => {
+    const result = removePluginConfig(
+      { order: ['plugin:alpha'], plugins: { alpha: {} } },
+      'alpha',
+    );
+
+    expect(result.order).toBeUndefined();
+    expect(result.plugins).toEqual({});
+  });
+
+  it('leaves an unset order unset', () => {
+    expect(removePluginConfig({ plugins: { alpha: {} } }, 'alpha').order).toBe(
+      undefined,
+    );
+  });
 });

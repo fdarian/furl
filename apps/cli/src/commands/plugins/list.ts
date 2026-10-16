@@ -1,22 +1,29 @@
 import {
   FurlConfigService,
+  getPluginsDirectoryPath,
   PluginDiscovery,
   pluginOrderToken,
 } from '@furl/core';
 import { Console, Effect } from 'effect';
 import { Command } from 'effect/unstable/cli';
 
-const getPluginStatusTitle = (name: string, enabled: boolean): string =>
-  `${name}  (${enabled ? 'enabled' : 'disabled'})`;
+export const formatPluginLine = (
+  name: string,
+  folder: string,
+  order: readonly string[],
+): string => {
+  const enabled = order.includes(pluginOrderToken(name));
+  return `${name}  (${enabled ? 'enabled' : 'disabled'}) - ${folder}`;
+};
 
 export const pluginsListCommand = Command.make('list', {}, () =>
   Effect.gen(function* () {
     const discovery = yield* PluginDiscovery;
     const configService = yield* FurlConfigService;
 
-    const plugins = yield* discovery.discover;
+    const names = yield* discovery.installedNames;
 
-    if (plugins.length === 0) {
+    if (names.length === 0) {
       yield* Console.log(
         'No plugins installed. Run `furl plugins install <git-url>` to add one.',
       );
@@ -24,11 +31,12 @@ export const pluginsListCommand = Command.make('list', {}, () =>
     }
 
     const order = yield* configService.resolveOrder;
+    const pluginsDirectory = yield* getPluginsDirectoryPath;
 
-    for (const plugin of plugins) {
-      const enabled = order.includes(pluginOrderToken(plugin.manifest.name));
-      const status = getPluginStatusTitle(plugin.manifest.name, enabled);
-      yield* Console.log(`${status} - ${plugin.folder}`);
+    for (const name of names) {
+      yield* Console.log(
+        formatPluginLine(name, `${pluginsDirectory}/${name}`, order),
+      );
     }
   }),
 ).pipe(Command.withDescription('List installed plugins'));

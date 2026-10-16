@@ -1,18 +1,19 @@
 import { Context, Effect, Layer } from 'effect';
 
 import { PluginLoadError } from '../errors.ts';
+import * as pluginAuthoring from './index.ts';
 
 const registerVirtualPluginsModule = Effect.promise(async () => {
   await Bun.plugin({
     name: 'furl-cli-virtual-plugins-module',
     setup(build) {
-      build.module('furl-cli/plugins', () => {
-        const definePlugin = (manifest: unknown) => manifest;
-        return {
-          exports: { definePlugin: definePlugin, default: definePlugin },
-          loader: 'object' as const,
-        };
-      });
+      build.module('furl-cli/plugins', () => ({
+        exports: {
+          ...pluginAuthoring,
+          default: pluginAuthoring.definePlugin,
+        },
+        loader: 'object' as const,
+      }));
     },
   });
 });

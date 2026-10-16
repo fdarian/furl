@@ -147,6 +147,9 @@ export const parseOrderTokens = (
 export const hasPluginToken = (tokens: readonly OrderToken[]): boolean =>
   tokens.some((token) => token._tag === 'plugin');
 
+export const pluginNamesInOrder = (tokens: readonly OrderToken[]): string[] =>
+  tokens.flatMap((token) => (token._tag === 'plugin' ? [token.name] : []));
+
 const matchPathPattern = (pattern: string, pathname: string): boolean => {
   const patternSegments = pattern
     .split('/')
