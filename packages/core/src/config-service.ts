@@ -102,9 +102,6 @@ export interface FurlConfigServiceShape {
   resolveProvider: Effect.Effect<Option.Option<ProviderName>, ConfigError>;
   /** The resolver precedence chain, defaulting to the keyless built-ins. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
-  pluginArgs: (
-    id: string,
-  ) => Effect.Effect<PluginConfigValue | undefined, ConfigError>;
   write: (config: FurlConfig) => Effect.Effect<void, ConfigError>;
 }
 
@@ -165,11 +162,6 @@ export const FurlConfigServiceLive = Layer.effect(
         return Option.none();
       }),
       resolveOrder: resolveOrder,
-      pluginArgs: (id: string) =>
-        Effect.gen(function* () {
-          const config = yield* read;
-          return config.plugins?.[id];
-        }),
       write: (config: FurlConfig) =>
         Effect.gen(function* () {
           const configFilePath = yield* getConfigFilePath;

@@ -77,7 +77,8 @@ describe('FurlConfigService', () => {
     const args = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
-        return yield* config.pluginArgs('alpha');
+        const current = yield* config.read;
+        return current.plugins?.alpha;
       }),
     );
 
@@ -88,7 +89,8 @@ describe('FurlConfigService', () => {
     const args = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
-        return yield* config.pluginArgs('alpha');
+        const current = yield* config.read;
+        return current.plugins?.alpha;
       }),
     );
 
