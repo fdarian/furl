@@ -1,7 +1,5 @@
 import { Data } from 'effect';
 
-import type { ResolverError } from '../errors.ts';
-
 /** Declarative host/path matcher used to rank and route plugins for a URL. */
 export type MatchPattern = {
   hostname: string;
@@ -46,9 +44,4 @@ export class ResolveSuccess extends Data.TaggedClass('success')<{
 /** A resolver declined to handle the URL. */
 export class ResolveDecline extends Data.TaggedClass('decline') {}
 
-/** A resolver definitively claimed the URL and then failed. */
-export class ResolveFailure extends Data.TaggedClass('failure')<{
-  error: ResolverError;
-}> {}
-
-export type ResolveOutcome = ResolveSuccess | ResolveDecline | ResolveFailure;
+export type ResolveOutcome = ResolveSuccess | ResolveDecline;

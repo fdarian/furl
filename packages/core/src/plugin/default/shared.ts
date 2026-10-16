@@ -40,10 +40,21 @@ export const appendMarkdownSuffix = (url: string): string => {
   return parsedUrl.toString();
 };
 
-export const fetchRawBody = (
+const responseIsHtml = (contentType: string | undefined): boolean => {
+  if (contentType === undefined) {
+    return false;
+  }
+  return contentType.toLowerCase().includes('text/html');
+};
+
+const isSuccessStatus = (status: number): boolean =>
+  status >= 200 && status < 300;
+
+/** Fetches the body as-is. Declines (`none`) when the server answers with HTML. */
+export const tryRawFetch = (
   client: HttpClientService,
   url: string,
-): Effect.Effect<string, FetchError> =>
+): Effect.Effect<Option.Option<string>, FetchError> =>
   Effect.gen(function* () {
     const response = yield* HttpClientRequest.get(url).pipe(
       client.execute,
@@ -53,28 +64,35 @@ export const fetchRawBody = (
       ),
     );
 
-    if (response.status < 200 || response.status >= 300) {
-      return yield* Effect.fail(
-        new FetchError({
-          url: url,
-          status: response.status,
-          cause: new Error(`Unexpected status ${response.status}`),
-        }),
-      );
+    if (!isSuccessStatus(response.status)) {
+      return yield* new FetchError({
+        url: url,
+        status: response.status,
+        cause: new Error(`Unexpected status ${response.status}`),
+      });
     }
 
-    return yield* response.text.pipe(
+    if (responseIsHtml(response.headers['content-type'])) {
+      return Option.none<string>();
+    }
+
+    const body = yield* response.text.pipe(
       Effect.mapError(
         (cause) =>
           new FetchError({ url: url, status: response.status, cause: cause }),
       ),
     );
+    return Option.some(body);
   });
 
+/**
+ * Asks for markdown. Non-2xx and non-markdown responses are declines (`none`);
+ * transport and body-read failures propagate as `FetchError`.
+ */
 export const tryDirectMarkdownFetch = (
   client: HttpClientService,
   url: string,
-): Effect.Effect<Option.Option<string>> =>
+): Effect.Effect<Option.Option<string>, FetchError> =>
   Effect.gen(function* () {
     const response = yield* HttpClientRequest.get(url).pipe(
       HttpClientRequest.setHeader('Accept', 'text/markdown'),
@@ -85,11 +103,10 @@ export const tryDirectMarkdownFetch = (
       ),
     );
 
-    if (response.status < 200 || response.status >= 300) {
-      return Option.none<string>();
-    }
-
-    if (!responseIsMarkdown(response.headers['content-type'])) {
+    if (
+      !isSuccessStatus(response.status) ||
+      !responseIsMarkdown(response.headers['content-type'])
+    ) {
       return Option.none<string>();
     }
 
@@ -99,8 +116,5 @@ export const tryDirectMarkdownFetch = (
           new FetchError({ url: url, status: response.status, cause: cause }),
       ),
     );
-
     return Option.some(body);
-  }).pipe(
-    Effect.catchTag('FetchError', () => Effect.succeed(Option.none<string>())),
-  );
+  });

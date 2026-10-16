@@ -1,6 +1,8 @@
 import { Effect, Option } from 'effect';
 
-import { matchAnySpecificity, type Resolver } from '../resolver.ts';
+import { ResolverError } from '../../errors.ts';
+
+import type { Resolver } from '../resolver.ts';
 import {
   ResolveDecline,
   type ResolveOutcome,
@@ -13,7 +15,6 @@ export const directResolver = (client: HttpClientService): Resolver => ({
   id: 'direct',
   isDefault: true,
   match: null,
-  specificity: matchAnySpecificity,
   run: (url) =>
     tryDirectMarkdownFetch(client, url.toString()).pipe(
       Effect.map(
@@ -21,6 +22,9 @@ export const directResolver = (client: HttpClientService): Resolver => ({
           Option.isSome(result)
             ? new ResolveSuccess({ markdown: result.value })
             : new ResolveDecline(),
+      ),
+      Effect.mapError(
+        (cause) => new ResolverError({ id: 'direct', cause: cause }),
       ),
     ),
 });

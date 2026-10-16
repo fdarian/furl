@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
 
+import { KeychainError } from '../errors.ts';
 import { resolvePluginConfig } from './resolve-config.ts';
 import { makeSecretsStub } from './test-doubles.ts';
 
@@ -51,7 +52,7 @@ describe('resolvePluginConfig', () => {
     });
   });
 
-  it('fails with a ResolverError when the referenced secret is missing', async () => {
+  it('fails with a ConfigError when the referenced secret is missing', async () => {
     const secrets = makeSecretsStub();
 
     const error = await Effect.runPromise(
@@ -60,9 +61,24 @@ describe('resolvePluginConfig', () => {
       ),
     );
 
-    expect(error._tag).toBe('ResolverError');
-    expect(error.id).toBe('x');
-    expect(String(error.cause)).toContain('missing');
+    expect(error._tag).toBe('ConfigError');
+    expect(error.message).toContain('"missing"');
+    expect(error.message).toContain('plugin "x"');
+  });
+
+  it('fails with a ConfigError when the keychain cannot be read', async () => {
+    const secrets = {
+      ...makeSecretsStub(),
+      get: () => Effect.fail(new KeychainError({ cause: new Error('locked') })),
+    };
+
+    const error = await Effect.runPromise(
+      Effect.flip(resolvePluginConfig(secrets, 'x', { apiKey: 'secret:k' })),
+    );
+
+    expect(error._tag).toBe('ConfigError');
+    expect(error.message).toContain('"k"');
+    expect(error.message).toContain('locked');
   });
 
   it('requires an exact "secret:" prefix, not just a leading "secret"', async () => {
