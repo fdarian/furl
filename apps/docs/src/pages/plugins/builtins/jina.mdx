@@ -20,10 +20,10 @@ furl https://example.com --resolvers default:jina
 
 ## Adding a key
 
-Optional — a key only raises your rate limit. furl reads `JINA_API_KEY` from the environment first, then falls back to the keychain:
+Optional — a key only raises your rate limit. furl reads `JINA_API_KEY` from the environment first, then falls back to the key saved by `furl providers`:
 
 ```sh
-furl secrets set jina
+furl providers
 ```
 
 ### Further reading

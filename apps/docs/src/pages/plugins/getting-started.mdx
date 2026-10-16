@@ -51,6 +51,8 @@ furl secrets set x-api-key
 
 Then reference it from the config as `"secret:x-api-key"`.
 
+These secrets are kept apart from the API keys saved by `furl providers`, so a name like `exa` can't read or overwrite a provider key. The name and value can't be empty.
+
 
 ### Further reading
 

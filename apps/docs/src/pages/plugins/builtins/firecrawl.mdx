@@ -20,10 +20,10 @@ furl https://example.com --resolvers default:firecrawl
 
 ## Adding a key
 
-Required — without one, firecrawl fails and the chain moves on. furl reads `FIRECRAWL_API_KEY` from the environment first, then falls back to the keychain:
+Required — without one, firecrawl fails and the chain moves on. furl reads `FIRECRAWL_API_KEY` from the environment first, then falls back to the key saved by `furl providers`:
 
 ```sh
-furl secrets set firecrawl
+furl providers
 ```
 
 ### Further reading

@@ -20,10 +20,10 @@ furl https://example.com --resolvers default:exa
 
 ## Adding a key
 
-Required — without one, exa fails and the chain moves on. furl reads `EXA_API_KEY` from the environment first, then falls back to the keychain:
+Required — without one, exa fails and the chain moves on. furl reads `EXA_API_KEY` from the environment first, then falls back to the key saved by `furl providers`:
 
 ```sh
-furl secrets set exa
+furl providers
 ```
 
 ### Further reading
