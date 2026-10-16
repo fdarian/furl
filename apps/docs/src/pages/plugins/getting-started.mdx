@@ -6,6 +6,7 @@
 furl plugins install https://github.com/someone/furl-x
 ```
 
+furl clones the repository into a temporary folder, shows where it came from (and the `name` and `description` from its `package.json`, if it has one), and asks for confirmation before running any of the plugin's code. It then moves the plugin to `~/.config/furl/plugins/<name>`, where `<name>` is the plugin's manifest `name`, and puts `plugin:<name>` first in `order`. Pass `--yes` to skip the prompt (required in non-interactive sessions). Only `https` and `ssh` URLs are accepted. Installing fails if a plugin with that name is already installed.
 
 ## Uninstalling
 
@@ -13,16 +14,18 @@ furl plugins install https://github.com/someone/furl-x
 furl plugins uninstall x
 ```
 
+This removes `plugin:x` from `order`, the `plugins.x` entry and its stored secrets, then deletes the folder. It works even if the folder is missing or the plugin is broken, because nothing is imported.
+
 ## Configuring
 
 ### Managing interactively
 
 ```sh
 furl plugins        # interactive: pick an installed plugin and configure it
-furl plugins list   # list installed plugins and whether each is in `order`
+furl plugins list   # list installed plugin folders and whether each is in `order`
 ```
 
-The interactive flow lists the installed plugins that declare `config` fields and renders a config form from the selected plugin's manifest.
+The interactive flow lists the installed plugins that are in `order` and renders a config form from the selected plugin's manifest. furl only runs plugin code for plugins listed in `order`; `furl plugins list` reads folder names without importing anything.
 
 
 ### How it's written in the config

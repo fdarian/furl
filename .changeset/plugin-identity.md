@@ -1,0 +1,5 @@
+---
+"furl-cli": minor
+---
+
+Plugins are now identified by their folder: `~/.config/furl/plugins/<name>` where `<name>` is the manifest name, and furl only imports the plugins listed in `order` (`plugin:<name>`). A plugin that fails to load now fails the fetch instead of being skipped with a warning, and a folder whose manifest name differs from its folder name is rejected. `furl plugins list` and `furl plugins uninstall <name>` no longer import any plugin code, so a broken or missing plugin can still be listed and uninstalled; uninstall updates the config first, then removes stored secrets and the folder. `furl plugins install` clones into a temporary folder, shows the URL and `package.json` name/description, asks for confirmation before importing any plugin code, refuses to overwrite an installed plugin, and rolls back if registering it fails. Git clones use `--` before the URL, only `https` and `ssh` URLs are accepted (`git:` is dropped), hosts starting with `-` are rejected, credentials are redacted from stored errors and stripped from the cloned remote. `furl plugins` (configure) only offers plugins listed in `order`.
