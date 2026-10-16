@@ -81,6 +81,61 @@ export const getPluginsDirectoryPath = getConfigDirectoryPath.pipe(
 const isReservedPluginName = (name: string): boolean =>
   name === '*' || name.startsWith('default:');
 
+const pluginNamePattern = /^[a-z0-9][a-z0-9_-]*$/;
+const configFieldKeyPattern = /^[A-Za-z0-9_-]+$/;
+const configFieldTypes: readonly unknown[] = [
+  'string',
+  'secret',
+  'boolean',
+  'number',
+  'enum',
+];
+
+/** Returns a description of the first problem with the manifest's `config`, or undefined when it's valid. */
+const findConfigProblem = (config: unknown): string | undefined => {
+  if (config === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(config)) {
+    return 'Plugin manifest "config" must be an array';
+  }
+
+  for (const [index, field] of config.entries()) {
+    if (typeof field !== 'object' || field === null) {
+      return `Plugin manifest config[${index}] must be an object`;
+    }
+
+    const candidate = field as Record<string, unknown>;
+
+    if (
+      typeof candidate.key !== 'string' ||
+      !configFieldKeyPattern.test(candidate.key)
+    ) {
+      return `Plugin manifest config[${index}] needs a "key" matching ${configFieldKeyPattern}`;
+    }
+
+    if (!configFieldTypes.includes(candidate.type)) {
+      return `Plugin manifest config field "${candidate.key}" has an unknown "type"`;
+    }
+
+    if (candidate.type === 'enum') {
+      const options = candidate.options;
+      if (
+        !Array.isArray(options) ||
+        options.length === 0 ||
+        !options.every(
+          (option) => typeof option === 'string' && option.length > 0,
+        )
+      ) {
+        return `Plugin manifest enum field "${candidate.key}" needs a non-empty "options" array of non-empty strings`;
+      }
+    }
+  }
+
+  return undefined;
+};
+
 const resolveEntrypoint = (
   fileSystem: FileSystem.FileSystem,
   folderPath: string,
@@ -179,6 +234,24 @@ const validateManifest = (
       return yield* new PluginLoadError({
         path: entrypointPath,
         cause: new Error(`Plugin name "${manifest.name}" is reserved`),
+      });
+    }
+
+    if (!pluginNamePattern.test(manifest.name)) {
+      return yield* new PluginLoadError({
+        path: entrypointPath,
+        cause: new Error(
+          `Plugin name "${manifest.name}" must match ${pluginNamePattern}`,
+        ),
+      });
+    }
+
+    const configProblem = findConfigProblem(manifest.config);
+
+    if (configProblem !== undefined) {
+      return yield* new PluginLoadError({
+        path: entrypointPath,
+        cause: new Error(configProblem),
       });
     }
 

@@ -125,6 +125,82 @@ describe('loadPluginManifest', () => {
     expect(String(error.cause)).toContain('reserved');
   });
 
+  const loadWithManifest = (folderName: string, manifest: unknown) => {
+    const folder = path.join(tempDir, folderName);
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'index.ts'), '');
+    const loader = makeLoaderStub({
+      [path.join(folder, 'index.ts')]: manifest,
+    });
+
+    return runWithFileSystem((fileSystem) =>
+      Effect.result(loadPluginManifest(fileSystem, loader, folder)),
+    );
+  };
+
+  it.each(['Upper', '-leading', '_leading', 'has space', 'a/b', 'a:b', '../x'])(
+    'rejects the plugin name %p',
+    async (name) => {
+      const result = await loadWithManifest('bad-name', {
+        ...validManifest('placeholder'),
+        name: name,
+      });
+
+      expect(result._tag).toBe('Failure');
+    },
+  );
+
+  it.each(['a', 'x1', 'my-plugin', 'my_plugin', '0abc'])(
+    'accepts the plugin name %p',
+    async (name) => {
+      const result = await loadWithManifest('good-name', validManifest(name));
+
+      expect(result._tag).toBe('Success');
+    },
+  );
+
+  it.each([
+    ['a non-array config', { key: 'k', type: 'string' }],
+    ['a non-object field', ['k']],
+    ['a field without a key', [{ type: 'string' }]],
+    ['a key with a dot', [{ key: 'a.b', type: 'string' }]],
+    ['an empty key', [{ key: '', type: 'string' }]],
+    ['an unknown type', [{ key: 'k', type: 'password' }]],
+    ['a missing type', [{ key: 'k' }]],
+    ['an enum without options', [{ key: 'k', type: 'enum' }]],
+    ['an enum with empty options', [{ key: 'k', type: 'enum', options: [] }]],
+    [
+      'an enum with non-string options',
+      [{ key: 'k', type: 'enum', options: [1] }],
+    ],
+    [
+      'an enum with an empty-string option',
+      [{ key: 'k', type: 'enum', options: [''] }],
+    ],
+  ])('rejects %s in config', async (_label, config) => {
+    const result = await loadWithManifest('bad-config', {
+      ...validManifest('bad-config'),
+      config: config,
+    });
+
+    expect(result._tag).toBe('Failure');
+  });
+
+  it('accepts a well-formed config', async () => {
+    const result = await loadWithManifest('good-config', {
+      ...validManifest('good-config'),
+      config: [
+        { key: 'apiKey', type: 'secret', required: true },
+        { key: 'mode', type: 'enum', options: ['a', 'b'] },
+        { key: 'retry-count', type: 'number' },
+        { key: 'flag_1', type: 'boolean' },
+        { key: 'label', type: 'string' },
+      ],
+    });
+
+    expect(result._tag).toBe('Success');
+  });
+
   it('rejects a manifest missing a valid match.hostname', async () => {
     const folder = path.join(tempDir, 'no-match');
     fs.mkdirSync(folder, { recursive: true });
