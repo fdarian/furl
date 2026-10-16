@@ -18,34 +18,33 @@ furl plugins uninstall x
 ### Managing interactively
 
 ```sh
-furl plugins        # interactive: list installed plugins, toggle enable/disable, configure one
-furl plugins list   # non-interactive listing
+furl plugins        # interactive: pick an installed plugin and configure it
+furl plugins list   # list installed plugins and whether each is in `order`
 ```
 
-The interactive flow lists plugins found by the directory scan along with their enabled/configured state, lets you toggle a plugin on or off, and renders a config form from the plugin's manifest `config` fields.
+The interactive flow lists the installed plugins that declare `config` fields and renders a config form from the selected plugin's manifest.
 
 
 ### How it's written in the config
 
 ```jsonc [~/.config/furl/config.json]
 {
-  "order": ["plugin-a", "some-other-plugin", "default:*"],
+  "order": ["plugin:plugin-a", "plugin:some-other-plugin", "default:*"],
   "plugins": {
-    "plugin-a": { "apiKey": "secret:x-api-key", "mode": "metadata" },
-    "some-other-plugin": false
+    "plugin-a": { "apiKey": "secret:x-api-key", "mode": "metadata" }
   }
 }
 ```
 
-- `order` controls the resolver precedence chain — see [Fetch strategy](/fetch-strategy). A plugin only runs if it's listed there.
-- `plugins[<id>]` is the config object handed to that plugin. Set it to `false` to disable the plugin instead.
+- `order` controls the resolver precedence chain — see [Fetch strategy](/fetch-strategy). A plugin only runs if it's listed there as `plugin:<name>`.
+- `plugins[<id>]` is the config object handed to that plugin. To disable a plugin, remove it from `order`.
 - A plugin can reference a [secret](#secrets) rather than keeping a sensitive value like an API key in plain text.
 
 ## Secrets
 
 Secrets are stored in the operating system's native secret manager.
 
-Use `furl secrets set [name]` to create a new secret:
+Use `furl secrets set <name>` to create a new secret:
 ```sh
 furl secrets set x-api-key
 ```

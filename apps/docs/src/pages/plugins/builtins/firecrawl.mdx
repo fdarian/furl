@@ -15,12 +15,12 @@ Headings, links, and lists come through intact, so it's the one to pick when the
 Or force it for a single call:
 
 ```sh
-furl https://example.com --plugin firecrawl
+furl https://example.com --resolvers default:firecrawl
 ```
 
 ## Adding a key
 
-Required — without one, firecrawl declines and the chain moves on. furl reads `FIRECRAWL_API_KEY` from the environment first, then falls back to the keychain:
+Required — without one, firecrawl fails and the chain moves on. furl reads `FIRECRAWL_API_KEY` from the environment first, then falls back to the keychain:
 
 ```sh
 furl secrets set firecrawl

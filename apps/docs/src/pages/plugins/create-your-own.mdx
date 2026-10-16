@@ -23,13 +23,13 @@ Then register it in [`order`](/plugins/getting-started) so it runs.
 
 > How the plugin is identified everywhere else
 
-This is the id you write in `order` and under `plugins` in `config.json` — not the folder name. It can't be `*` or start with `default:`.
+This is the id you write in `order` (as `plugin:<name>`) and under `plugins` in `config.json` — not the folder name. It can't be `*` or start with `default:`.
 
 ##### match
 
 > Which URLs this plugin claims
 
-A declarative hostname plus an optional path pattern. furl reads it to rank plugins by specificity, so a plugin scoped to one host naturally runs ahead of a broader one — without executing any plugin code.
+A declarative hostname plus an optional path pattern. furl reads it to skip the plugin for URLs it doesn't match — without executing any plugin code. Precedence comes from the plugin's position in `order`.
 
 :::details[When the pattern can't express it]
 `match` only decides whether your plugin is a candidate. For URL variants the pattern can't capture, let it match and then decline at runtime inside `resolve`.

@@ -15,12 +15,12 @@ Exa gives you clean prose with the navigation and boilerplate stripped, but it's
 Or force it for a single call:
 
 ```sh
-furl https://example.com --plugin exa
+furl https://example.com --resolvers default:exa
 ```
 
 ## Adding a key
 
-Required — without one, exa declines and the chain moves on. furl reads `EXA_API_KEY` from the environment first, then falls back to the keychain:
+Required — without one, exa fails and the chain moves on. furl reads `EXA_API_KEY` from the environment first, then falls back to the keychain:
 
 ```sh
 furl secrets set exa
