@@ -325,4 +325,44 @@ describe('buildResolverList', () => {
 
     expect(receivedConfig).toEqual({});
   });
+
+  it('resolves "secret:<name>" config refs before invoking the plugin', async () => {
+    const plugin = makePlugin('alpha');
+    let receivedConfig: Record<string, unknown> | undefined;
+    plugin.manifest.resolve = (context) => {
+      receivedConfig = context.config;
+      return null;
+    };
+    const config = makeConfigStub({
+      plugins: { alpha: { apiKey: 'secret:alpha.apiKey', mode: 'full' } },
+    });
+
+    const resolver = toPluginResolver(
+      makeSecretsStub({ 'alpha.apiKey': 'real-key' }),
+      config,
+      plugin,
+    );
+    await Effect.runPromise(resolver.run(url));
+
+    expect(receivedConfig).toEqual({ apiKey: 'real-key', mode: 'full' });
+  });
+
+  it('fails with a ResolverError without running the plugin when a referenced secret is missing', async () => {
+    const plugin = makePlugin('alpha');
+    let invoked = false;
+    plugin.manifest.resolve = () => {
+      invoked = true;
+      return null;
+    };
+    const config = makeConfigStub({
+      plugins: { alpha: { apiKey: 'secret:alpha.apiKey' } },
+    });
+
+    const resolver = toPluginResolver(makeSecretsStub(), config, plugin);
+    const error = await runFail(resolver.run(url));
+
+    expect(error._tag).toBe('ResolverError');
+    expect(error.id).toBe('alpha');
+    expect(invoked).toBe(false);
+  });
 });

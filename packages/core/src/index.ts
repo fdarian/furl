@@ -42,4 +42,5 @@ export {
 export type { ConfigField, PluginManifest } from './plugin/types.ts';
 export type { ProviderName } from './provider-name.ts';
 export { providerSchema } from './provider-name.ts';
+export type { SecretsService } from './secrets-service.ts';
 export { Secrets, SecretsLive } from './secrets-service.ts';

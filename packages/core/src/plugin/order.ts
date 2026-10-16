@@ -10,6 +10,7 @@ import {
   defaultWildcardResolverNames,
 } from './default/shared.ts';
 import type { DiscoveredPlugin } from './discovery.ts';
+import { resolvePluginConfig } from './resolve-config.ts';
 import { computeSpecificity, type Resolver } from './resolver.ts';
 import {
   type MatchPattern,
@@ -170,7 +171,7 @@ export const matchesUrl = (match: MatchPattern | null, url: URL): boolean => {
 };
 
 export const toPluginResolver = (
-  _secrets: SecretsService,
+  secrets: SecretsService,
   configService: FurlConfigServiceShape,
   plugin: DiscoveredPlugin,
 ): Resolver => ({
@@ -188,7 +189,11 @@ export const toPluginResolver = (
               new ResolverError({ id: plugin.manifest.name, cause: cause }),
           ),
         );
-      const resolvedConfig = configuredArgs === undefined ? {} : configuredArgs;
+      const resolvedConfig = yield* resolvePluginConfig(
+        secrets,
+        plugin.manifest.name,
+        configuredArgs,
+      );
 
       const result = yield* Effect.tryPromise({
         try: () =>
