@@ -35,14 +35,19 @@ export type FurlConfig = {
 const defaultOrder: readonly string[] = ['default:*'];
 
 const normalizeConfig = (config: FurlConfig): FurlConfig => {
-  const order =
-    config.order ??
-    (config.provider === undefined
-      ? defaultOrder
-      : insertProviderToken(defaultOrder, config.provider));
-
-  const normalized: FurlConfig = { ...config, order: order };
+  const normalized: FurlConfig = { ...config };
   delete normalized.provider;
+
+  if (config.order !== undefined) {
+    return normalized;
+  }
+
+  if (config.provider === undefined) {
+    delete normalized.order;
+    return normalized;
+  }
+
+  normalized.order = insertProviderToken(defaultOrder, config.provider);
   return normalized;
 };
 

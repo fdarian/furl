@@ -86,6 +86,19 @@ describe('providers command helpers', () => {
       expect(logs.join('\n')).toContain('Removed exa');
     });
 
+    it('deletes the order key when removal leaves it empty', async () => {
+      const config: FurlConfig = {
+        order: ['default:exa'],
+        plugins: { alpha: { mode: 'full' } },
+      };
+
+      const writes = await run(removeProviderFromOrder('exa'), config);
+
+      expect(writes).toEqual([{ plugins: { alpha: { mode: 'full' } } }]);
+      expect(Object.keys(writes[0] ?? {})).not.toContain('order');
+      expect(logs.join('\n')).toContain('default:*');
+    });
+
     it('does not write when the provider is not in the order', async () => {
       const writes = await run(removeProviderFromOrder('exa'), {
         order: ['default:*'],

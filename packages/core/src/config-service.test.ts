@@ -288,4 +288,15 @@ describe('FurlConfigService', () => {
       futureFlag: true,
     });
   });
+
+  it('omits order on write when the config has none and no legacy provider', async () => {
+    await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        yield* config.write({ plugins: { alpha: {} } });
+      }),
+    );
+
+    expect(readWrittenConfig()).toEqual({ plugins: { alpha: {} } });
+  });
 });

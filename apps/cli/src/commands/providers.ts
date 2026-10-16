@@ -86,6 +86,16 @@ export const removeProviderFromOrder = (provider: ProviderName) =>
       return;
     }
 
+    if (nextOrder.length === 0) {
+      const remaining: FurlConfig = { ...config };
+      delete remaining.order;
+      yield* configService.write(remaining);
+      yield* Console.log(
+        `Removed ${provider} from your resolver order. The order is now empty, so the default order ("default:*") applies.`,
+      );
+      return;
+    }
+
     yield* configService.write({ ...config, order: nextOrder });
     yield* Console.log(`Removed ${provider} from your resolver order.`);
   });
