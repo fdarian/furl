@@ -1,14 +1,20 @@
-import type { ConfigField, DiscoveredPlugin, KeychainError } from '@furl/core';
+import type {
+  ConfigField,
+  DiscoveredPlugin,
+  InvalidSecretError,
+  KeychainError,
+} from '@furl/core';
 import {
   FurlConfigService,
   PluginDiscovery,
   Secrets,
+  secretNameFor,
   secretReferencePrefix,
+  setGenericSecret,
 } from '@furl/core';
 import type { Terminal } from 'effect';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Prompt } from 'effect/unstable/cli';
-import { secretNameFor } from './secret-name';
 
 /** `None` means "leave the existing value untouched". */
 const promptConfigField = (
@@ -17,7 +23,7 @@ const promptConfigField = (
   existingValue: unknown,
 ): Effect.Effect<
   Option.Option<unknown>,
-  KeychainError | Terminal.QuitError,
+  KeychainError | InvalidSecretError | Terminal.QuitError,
   Secrets | Prompt.Environment
 > =>
   Effect.gen(function* () {
@@ -38,7 +44,7 @@ const promptConfigField = (
       }
 
       const secretName = secretNameFor(pluginId, field.key);
-      yield* secrets.set(secretName, value);
+      yield* setGenericSecret(secrets, secretName, value);
       return Option.some(`${secretReferencePrefix}${secretName}`);
     }
 

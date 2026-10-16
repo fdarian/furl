@@ -1,4 +1,4 @@
-import { Secrets } from '@furl/core';
+import { Secrets, setGenericSecret } from '@furl/core';
 import { Console, Effect, Redacted } from 'effect';
 import { Argument, Command, Prompt } from 'effect/unstable/cli';
 
@@ -17,7 +17,11 @@ export const secretsSetCommand = Command.make(
       const value = yield* Prompt.Password({
         message: `Enter value for "${commandConfig.name}":`,
       });
-      yield* secrets.set(commandConfig.name, Redacted.value(value));
+      yield* setGenericSecret(
+        secrets,
+        commandConfig.name,
+        Redacted.value(value),
+      );
       yield* Console.log(`Saved secret "${commandConfig.name}".`);
     }),
 ).pipe(Command.withDescription('Store a secret in the OS keychain'));

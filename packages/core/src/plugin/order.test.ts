@@ -362,7 +362,7 @@ describe('buildResolverList', () => {
     };
 
     const resolver = toPluginResolver(
-      makeSecretsStub({ 'alpha.apiKey': 'real-key' }),
+      makeSecretsStub({ 'secret/alpha.apiKey': 'real-key' }),
       plugin,
       { apiKey: 'secret:alpha.apiKey', mode: 'full' },
     );

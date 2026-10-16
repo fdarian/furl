@@ -12,6 +12,7 @@ export {
   AllResolversFailed,
   ConfigError,
   FetchError,
+  InvalidSecretError,
   KeychainError,
   NoProviderKey,
   PluginInstallError,
@@ -39,7 +40,15 @@ export {
   insertProviderToken,
   pluginOrderToken,
 } from './plugin/order.ts';
-export { secretReferencePrefix } from './plugin/resolve-config.ts';
+export {
+  deleteGenericSecret,
+  findPluginSecretNames,
+  genericSecretAccount,
+  getGenericSecret,
+  secretNameFor,
+  secretReferencePrefix,
+  setGenericSecret,
+} from './plugin/resolve-config.ts';
 export type { ConfigField, PluginManifest } from './plugin/types.ts';
 export type { ProviderName } from './provider-name.ts';
 export { providerSchema } from './provider-name.ts';
