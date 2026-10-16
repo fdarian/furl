@@ -51,6 +51,17 @@ const getProviderStatusTitle = (
   return keyIsSet ? 'firecrawl  (key set)' : 'firecrawl  (not set)';
 };
 
+export const validateProviderKey = (value: string) =>
+  value.trim().length === 0
+    ? Effect.fail('API key cannot be empty')
+    : Effect.succeed(value);
+
+const promptProviderKey = (provider: ProviderName) =>
+  Prompt.Password({
+    message: `Enter ${provider} API key:`,
+    validate: validateProviderKey,
+  });
+
 export const migrateLegacyProvider = (config: FurlConfig) =>
   Effect.gen(function* () {
     if (config.provider === undefined) {
@@ -121,9 +132,7 @@ const setDefaultProvider = (provider: ProviderName) =>
 const saveProviderKey = (provider: 'exa' | 'firecrawl') =>
   Effect.gen(function* () {
     const secrets = yield* Secrets;
-    const key = yield* Prompt.Password({
-      message: `Enter ${provider} API key:`,
-    });
+    const key = yield* promptProviderKey(provider);
     yield* secrets.set(provider, Redacted.value(key));
     yield* Console.log(`Saved ${provider} key.`);
     yield* setDefaultProvider(provider);
@@ -194,9 +203,7 @@ const manageJinaProvider = () =>
     }
 
     if (action === 'set' || action === 'replace') {
-      const key = yield* Prompt.Password({
-        message: 'Enter jina API key:',
-      });
+      const key = yield* promptProviderKey('jina');
       yield* secrets.set('jina', Redacted.value(key));
       yield* Console.log('Saved jina key.');
       yield* hintIfJinaNotInOrder();

@@ -7,6 +7,7 @@ import {
   hintIfJinaNotInOrder,
   migrateLegacyProvider,
   removeProviderFromOrder,
+  validateProviderKey,
 } from './providers';
 
 const makeConfigService = (initial: FurlConfig) => {
@@ -32,6 +33,23 @@ const run = <A, E>(
     Effect.provideService(effect, FurlConfigService, stub.service),
   ).then(() => stub.writes);
 };
+
+describe('validateProviderKey', () => {
+  it('rejects empty and whitespace-only keys', async () => {
+    expect(await Effect.runPromise(Effect.flip(validateProviderKey('')))).toBe(
+      'API key cannot be empty',
+    );
+    expect(
+      await Effect.runPromise(Effect.flip(validateProviderKey('  \t '))),
+    ).toBe('API key cannot be empty');
+  });
+
+  it('accepts a non-empty key unchanged', async () => {
+    expect(await Effect.runPromise(validateProviderKey('sk-abc'))).toBe(
+      'sk-abc',
+    );
+  });
+});
 
 describe('providers command helpers', () => {
   let logs: string[];
