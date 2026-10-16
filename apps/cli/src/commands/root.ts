@@ -3,6 +3,7 @@ import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 import { pluginsCommand } from './plugins/root';
 import { providersCommand, warnLegacyProvider } from './providers';
+import { secretsCommand } from './secrets/root';
 
 const splitResolverTokens = (value: string): readonly string[] => {
   const tokens = value.split(',').map((token) => token.trim());
@@ -42,6 +43,7 @@ export const rootCommand = Command.make(
       if (Option.isNone(config.url)) {
         yield* Console.log('Usage: furl <url> [--resolvers <tokens>]');
         yield* Console.log('       furl plugins');
+        yield* Console.log('       furl secrets set <name>');
         yield* Console.log('       furl providers');
         return;
       }
@@ -61,6 +63,6 @@ export const rootCommand = Command.make(
       yield* Console.error(`↳ via ${result.source}`);
     }),
 ).pipe(
-  Command.withSubcommands([pluginsCommand, providersCommand]),
+  Command.withSubcommands([pluginsCommand, secretsCommand, providersCommand]),
   Command.withDescription('Fetch a URL and return LLM-optimized markdown'),
 );

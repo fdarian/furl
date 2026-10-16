@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { ResolverError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 
-const secretReferencePrefix = 'secret:';
+export const secretReferencePrefix = 'secret:';
 
 const resolveSecretReference = (
   secrets: SecretsService,
