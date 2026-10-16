@@ -13,8 +13,8 @@ The default chain has three resolvers. They're tried in order, and the first one
 
 If the URL pathname ends with a file extension (`.md`, `.txt`, `.json`, etc.), furl fetches the file as-is, just like a regular curl.
 
-:::details[.html still returns raw content]
-It matches on any file extension, not on file type. A URL ending in `.html`, `.php`, `.aspx`, or any other extension returns raw content.
+:::details[HTML responses are skipped]
+It matches on any file extension, not on file type. If the server answers with `text/html` (for example `/wiki/Node.js`), `raw` steps aside and the next resolver runs instead of returning markup.
 :::
 
 ##### default:direct
@@ -35,19 +35,19 @@ If the direct fetch doesn't return markdown, furl retries the same URL with `.md
 
 :::details[Knowing what was used]
 
-furl logs the resolver (`↳ via [resolver]`) at the end of the output:
+furl logs the order token of the resolver that produced the result (`↳ via default:md-suffix`, `↳ via plugin:x`) at the end of the output:
 ```
 ❯ furl some-url.com
 ## Content
 Some content in markdown
 
-↳ via md-suffix
+↳ via default:md-suffix
 ```
 
 That line goes to stderr, so it never ends up in a file or a pipe:
 ```bash
 ❯ furl https://vercel.com/design.md > design.md
-↳ via raw
+↳ via default:raw
 
 ❯ cat design.md
 [clean output]

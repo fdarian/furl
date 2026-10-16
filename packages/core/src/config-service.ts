@@ -99,9 +99,7 @@ export class FurlConfigService extends Context.Service<
 
 export interface FurlConfigServiceShape {
   read: Effect.Effect<FurlConfig, ConfigError>;
-  resolveProvider: (
-    providerOverride: Option.Option<ProviderName>,
-  ) => Effect.Effect<Option.Option<ProviderName>, ConfigError>;
+  resolveProvider: Effect.Effect<Option.Option<ProviderName>, ConfigError>;
   /** The resolver precedence chain, defaulting to the keyless built-ins. */
   resolveOrder: Effect.Effect<readonly string[], ConfigError>;
   pluginArgs: (
@@ -153,24 +151,19 @@ export const FurlConfigServiceLive = Layer.effect(
 
     return {
       read: read,
-      resolveProvider: (providerOverride: Option.Option<ProviderName>) =>
-        Effect.gen(function* () {
-          if (Option.isSome(providerOverride)) {
-            return Option.some(providerOverride.value);
+      resolveProvider: Effect.gen(function* () {
+        const order = yield* resolveOrder;
+        for (const entry of order) {
+          const provider = providerNames.find(
+            (candidate) => providerOrderToken(candidate) === entry,
+          );
+          if (provider !== undefined) {
+            return Option.some(provider);
           }
+        }
 
-          const order = yield* resolveOrder;
-          for (const entry of order) {
-            const provider = providerNames.find(
-              (candidate) => providerOrderToken(candidate) === entry,
-            );
-            if (provider !== undefined) {
-              return Option.some(provider);
-            }
-          }
-
-          return Option.none();
-        }),
+        return Option.none();
+      }),
       resolveOrder: resolveOrder,
       pluginArgs: (id: string) =>
         Effect.gen(function* () {

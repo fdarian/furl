@@ -116,7 +116,7 @@ describe('FurlConfigService', () => {
         const config = yield* FurlConfigService;
         return {
           value: yield* config.read,
-          provider: yield* config.resolveProvider(Option.none()),
+          provider: yield* config.resolveProvider,
           order: yield* config.resolveOrder,
         };
       }),
@@ -137,7 +137,7 @@ describe('FurlConfigService', () => {
         const config = yield* FurlConfigService;
         return {
           value: yield* config.read,
-          provider: yield* config.resolveProvider(Option.none()),
+          provider: yield* config.resolveProvider,
           order: yield* config.resolveOrder,
         };
       }),
@@ -156,7 +156,7 @@ describe('FurlConfigService', () => {
     const provider = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
-        return yield* config.resolveProvider(Option.none());
+        return yield* config.resolveProvider;
       }),
     );
 
@@ -167,7 +167,7 @@ describe('FurlConfigService', () => {
     const provider = await runWithConfig(
       Effect.gen(function* () {
         const config = yield* FurlConfigService;
-        return yield* config.resolveProvider(Option.none());
+        return yield* config.resolveProvider;
       }),
     );
 

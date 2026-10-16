@@ -77,7 +77,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
   Effect.gen(function* () {
     const secrets = yield* Secrets;
     const config = yield* FurlConfigService;
-    const activeProvider = yield* config.resolveProvider(Option.none());
+    const activeProvider = yield* config.resolveProvider;
     const action = yield* Prompt.Select({
       message: `Manage ${provider}`,
       choices: [
@@ -176,7 +176,7 @@ export const providersCommand = Command.make('providers', {}, () =>
     const config = yield* FurlConfigService;
     const configValue = yield* config.read;
     yield* warnLegacyProvider(configValue);
-    const activeProvider = yield* config.resolveProvider(Option.none());
+    const activeProvider = yield* config.resolveProvider;
     const jinaKey = yield* secrets.get('jina');
     const exaKey = yield* secrets.get('exa');
     const firecrawlKey = yield* secrets.get('firecrawl');
