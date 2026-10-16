@@ -16,6 +16,7 @@ import {
   matchesUrl,
   parseOrderToken,
   parseOrderTokens,
+  removeProviderToken,
   toPluginResolver,
 } from './order.ts';
 import type { Resolver } from './resolver.ts';
@@ -130,6 +131,27 @@ describe('insertPluginToken', () => {
         'alpha',
       ),
     ).toEqual(['plugin:alpha', 'default:*', 'default:jina']);
+  });
+});
+
+describe('removeProviderToken', () => {
+  it('removes only the given provider token', () => {
+    expect(
+      removeProviderToken(
+        ['default:*', 'default:exa', 'plugin:alpha', 'default:firecrawl'],
+        'exa',
+      ),
+    ).toEqual(['default:*', 'plugin:alpha', 'default:firecrawl']);
+  });
+
+  it('never adds jina when the removed provider was the last one', () => {
+    expect(removeProviderToken(['default:*', 'default:exa'], 'exa')).toEqual([
+      'default:*',
+    ]);
+  });
+
+  it('leaves an order without the token unchanged', () => {
+    expect(removeProviderToken(['default:*'], 'exa')).toEqual(['default:*']);
   });
 });
 
