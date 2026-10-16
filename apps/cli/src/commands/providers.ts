@@ -1,5 +1,11 @@
 import type { FurlConfig, ProviderName } from '@furl/core';
-import { FurlConfigService, insertProviderToken, Secrets } from '@furl/core';
+import {
+  FurlConfigService,
+  insertProviderToken,
+  providerOrderToken,
+  removeProviderToken,
+  Secrets,
+} from '@furl/core';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/unstable/cli';
 
@@ -45,15 +51,55 @@ const getProviderStatusTitle = (
   return keyIsSet ? 'firecrawl  (key set)' : 'firecrawl  (not set)';
 };
 
+export const migrateLegacyProvider = (config: FurlConfig) =>
+  Effect.gen(function* () {
+    if (config.provider === undefined) {
+      return;
+    }
+
+    const configService = yield* FurlConfigService;
+    yield* configService.write(config);
+    yield* Console.log(
+      `Migrated config.json's legacy "provider" field ("${config.provider}") to "order".`,
+    );
+  });
+
 const putProviderInOrder = (provider: ProviderName) =>
   Effect.gen(function* () {
     const configService = yield* FurlConfigService;
     const config = yield* configService.read;
     const order = yield* configService.resolveOrder;
     yield* configService.write({
+      ...config,
       order: insertProviderToken(order, provider),
-      plugins: config.plugins,
     });
+  });
+
+export const removeProviderFromOrder = (provider: ProviderName) =>
+  Effect.gen(function* () {
+    const configService = yield* FurlConfigService;
+    const config = yield* configService.read;
+    const order = yield* configService.resolveOrder;
+    const nextOrder = removeProviderToken(order, provider);
+
+    if (nextOrder.length === order.length) {
+      return;
+    }
+
+    yield* configService.write({ ...config, order: nextOrder });
+    yield* Console.log(`Removed ${provider} from your resolver order.`);
+  });
+
+export const hintIfJinaNotInOrder = () =>
+  Effect.gen(function* () {
+    const configService = yield* FurlConfigService;
+    const order = yield* configService.resolveOrder;
+
+    if (!order.includes(providerOrderToken('jina'))) {
+      yield* Console.log(
+        'Hint: default:jina is not in your resolver order, so the key will not be used. Choose "Set as default" for jina to add it.',
+      );
+    }
   });
 
 const setDefaultProvider = (provider: ProviderName) =>
@@ -76,8 +122,6 @@ const saveProviderKey = (provider: 'exa' | 'firecrawl') =>
 const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
   Effect.gen(function* () {
     const secrets = yield* Secrets;
-    const config = yield* FurlConfigService;
-    const activeProvider = yield* config.resolveProvider;
     const action = yield* Prompt.Select({
       message: `Manage ${provider}`,
       choices: [
@@ -107,16 +151,7 @@ const manageConfiguredProvider = (provider: 'exa' | 'firecrawl') =>
       if (confirmed) {
         yield* secrets.delete(provider);
         yield* Console.log(`Deleted ${provider} key.`);
-
-        if (
-          Option.isSome(activeProvider) &&
-          activeProvider.value === provider
-        ) {
-          yield* putProviderInOrder('jina');
-          yield* Console.log(
-            'jina is now your default provider because the active provider key was deleted.',
-          );
-        }
+        yield* removeProviderFromOrder(provider);
       }
     }
   });
@@ -154,6 +189,7 @@ const manageJinaProvider = () =>
       });
       yield* secrets.set('jina', Redacted.value(key));
       yield* Console.log('Saved jina key.');
+      yield* hintIfJinaNotInOrder();
       return;
     }
 
@@ -175,7 +211,7 @@ export const providersCommand = Command.make('providers', {}, () =>
     const secrets = yield* Secrets;
     const config = yield* FurlConfigService;
     const configValue = yield* config.read;
-    yield* warnLegacyProvider(configValue);
+    yield* migrateLegacyProvider(configValue);
     const activeProvider = yield* config.resolveProvider;
     const jinaKey = yield* secrets.get('jina');
     const exaKey = yield* secrets.get('exa');
