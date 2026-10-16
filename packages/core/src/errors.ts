@@ -6,14 +6,23 @@ export class FetchError extends Schema.TaggedError<FetchError>(
   url: Schema.String,
   status: Schema.optional(Schema.Number),
   cause: Schema.Defect(),
-}) {}
+}) {
+  override get message(): string {
+    const status = this.status === undefined ? '' : ` (status ${this.status})`;
+    return `Failed to fetch ${redactUrlUserInfo(this.url)}${status}: ${redactUrlUserInfo(describeCause(this.cause))}`;
+  }
+}
 
 export class ProviderError extends Schema.TaggedError<ProviderError>(
   'furl/ProviderError',
 )('ProviderError', {
   provider: Schema.String,
   cause: Schema.Defect(),
-}) {}
+}) {
+  override get message(): string {
+    return `${this.provider} request failed: ${describeCause(this.cause)}`;
+  }
+}
 
 export class NoProviderKey extends Schema.TaggedError<NoProviderKey>(
   'furl/NoProviderKey',
@@ -29,7 +38,11 @@ export class KeychainError extends Schema.TaggedError<KeychainError>(
   'furl/KeychainError',
 )('KeychainError', {
   cause: Schema.Defect(),
-}) {}
+}) {
+  override get message(): string {
+    return `Keychain access failed: ${describeCause(this.cause)}`;
+  }
+}
 
 export class ConfigError extends Schema.TaggedError<ConfigError>(
   'furl/ConfigError',
@@ -81,7 +94,11 @@ export class PluginLoadError extends Schema.TaggedError<PluginLoadError>(
 )('PluginLoadError', {
   path: Schema.String,
   cause: Schema.Defect(),
-}) {}
+}) {
+  override get message(): string {
+    return `${this.path}: ${describeCause(this.cause)}`;
+  }
+}
 
 export class PluginInstallError extends Schema.TaggedError<PluginInstallError>(
   'furl/PluginInstallError',
@@ -94,18 +111,47 @@ export class PluginInstallError extends Schema.TaggedError<PluginInstallError>(
   }
 }
 
-const redactUrlUserInfo = (value: string): string =>
+export const redactUrlUserInfo = (value: string): string =>
   value.replace(/(https?|ssh|git):\/\/[^/\s@]+@/gi, '$1://[redacted]@');
 
-export const describeCause = (cause: unknown): string => {
-  if (cause instanceof Error) {
-    return cause.message;
+const errorTag = (value: object): string | undefined =>
+  '_tag' in value && typeof value._tag === 'string' ? value._tag : undefined;
+
+const describeError = (error: Error, seen: Set<unknown>): string => {
+  if (error.message !== '') {
+    return error.message;
   }
 
+  const tag = errorTag(error);
+  const nested =
+    error.cause === undefined || seen.has(error.cause)
+      ? undefined
+      : describeSeen(error.cause, seen);
+
+  if (tag !== undefined && nested !== undefined) {
+    return `${tag}: ${nested}`;
+  }
+
+  return tag ?? nested ?? error.name;
+};
+
+const describeSeen = (cause: unknown, seen: Set<unknown>): string => {
   if (typeof cause === 'string') {
     return cause;
   }
 
-  const serialized = JSON.stringify(cause);
-  return serialized === undefined ? String(cause) : serialized;
+  if (cause instanceof Error) {
+    seen.add(cause);
+    return describeError(cause, seen);
+  }
+
+  try {
+    const serialized = JSON.stringify(cause);
+    return serialized === undefined ? String(cause) : serialized;
+  } catch {
+    return String(cause);
+  }
 };
+
+export const describeCause = (cause: unknown): string =>
+  describeSeen(cause, new Set());
