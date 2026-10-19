@@ -8,6 +8,7 @@ import {
   FurlConfigService,
   getGenericSecret,
   PluginDiscovery,
+  pluginOrderToken,
   Secrets,
   secretNameFor,
   secretReferencePrefix,
@@ -171,14 +172,18 @@ const configurePlugin = (plugin: DiscoveredPlugin) =>
 
 export const runConfigurePluginMenu = Effect.gen(function* () {
   const discovery = yield* PluginDiscovery;
-  const plugins = yield* discovery.discover;
-  const configurablePlugins = plugins.filter(
-    (plugin) => (plugin.manifest.config ?? []).length > 0,
+  const configService = yield* FurlConfigService;
+  const installedNames = yield* discovery.installedNames;
+  const order = yield* configService.resolveOrder;
+  // Configuring needs the manifest, which means importing the plugin, so only
+  // plugins listed in `order` are offered.
+  const enabledNames = installedNames.filter((name) =>
+    order.includes(pluginOrderToken(name)),
   );
 
-  if (configurablePlugins.length === 0) {
+  if (enabledNames.length === 0) {
     yield* Console.log(
-      'No installed plugins have configurable fields. Run `furl plugins install <git-url>` to add one.',
+      'No enabled plugins. Run `furl plugins install <git-url>` to add one, or add "plugin:<name>" to `order` in config.json.',
     );
     return;
   }
@@ -186,9 +191,9 @@ export const runConfigurePluginMenu = Effect.gen(function* () {
   const selected = yield* Prompt.Select({
     message: 'Select a plugin to configure',
     choices: [
-      ...configurablePlugins.map((plugin) => ({
-        title: plugin.name,
-        value: plugin as DiscoveredPlugin | null,
+      ...enabledNames.map((name) => ({
+        title: name,
+        value: name as string | null,
       })),
       { title: 'Exit', value: null },
     ],
@@ -198,5 +203,14 @@ export const runConfigurePluginMenu = Effect.gen(function* () {
     return;
   }
 
-  yield* configurePlugin(selected);
+  const plugins = yield* discovery.discover([selected]);
+
+  for (const plugin of plugins) {
+    if ((plugin.manifest.config ?? []).length === 0) {
+      yield* Console.log(`"${plugin.name}" has no configurable fields.`);
+      continue;
+    }
+
+    yield* configurePlugin(plugin);
+  }
 });

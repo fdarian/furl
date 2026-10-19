@@ -1,15 +1,7 @@
-import {
-  Console,
-  Context,
-  Effect,
-  FileSystem,
-  Layer,
-  Option,
-  Schema,
-} from 'effect';
+import { Context, Effect, FileSystem, Layer, Schema } from 'effect';
 
 import { getConfigDirectoryPath } from '../config-service.ts';
-import { describeCause, PluginLoadError } from '../errors.ts';
+import { PluginLoadError } from '../errors.ts';
 
 import { PluginLoader } from './loader.ts';
 import type { PluginManifest } from './types.ts';
@@ -306,70 +298,88 @@ export const loadPluginManifest = (
     };
   });
 
-const discoverPluginFolder = (
+export const getPluginFolderPath = (
+  pluginsDirectory: string,
+  name: string,
+): string => `${pluginsDirectory}/${name}`;
+
+/** Whether `name` is safe to use as a folder name under `plugins/` and as a `plugin:<name>` token. */
+export const isValidPluginName = (name: string): boolean =>
+  pluginNamePattern.test(name);
+
+const readPluginsDirectoryPath = getPluginsDirectoryPath.pipe(
+  Effect.mapError(
+    (cause) =>
+      new PluginLoadError({ path: '~/.config/furl/plugins', cause: cause }),
+  ),
+);
+
+/** Imports `plugins/<name>/` and checks the manifest declares that same name. */
+export const loadPluginByName = (
   fileSystem: FileSystem.FileSystem,
   loader: PluginLoader['Service'],
-  pluginsDirectory: string,
-  folderName: string,
-): Effect.Effect<Option.Option<DiscoveredPlugin>> =>
+  name: string,
+): Effect.Effect<DiscoveredPlugin, PluginLoadError> =>
   Effect.gen(function* () {
-    const folderPath = `${pluginsDirectory}/${folderName}`;
-    const info = yield* fileSystem
-      .stat(folderPath)
+    const pluginsDirectory = yield* readPluginsDirectoryPath;
+    const folderPath = getPluginFolderPath(pluginsDirectory, name);
+
+    if (!isValidPluginName(name)) {
+      return yield* new PluginLoadError({
+        path: folderPath,
+        cause: new Error(
+          `Invalid plugin name "${name}" (must match ${pluginNamePattern})`,
+        ),
+      });
+    }
+
+    const folderExists = yield* fileSystem
+      .exists(folderPath)
       .pipe(
         Effect.mapError(
           (cause) => new PluginLoadError({ path: folderPath, cause: cause }),
         ),
       );
 
-    if (info.type !== 'Directory') {
-      return Option.none<DiscoveredPlugin>();
+    if (!folderExists) {
+      return yield* new PluginLoadError({
+        path: folderPath,
+        cause: new Error(
+          `Plugin "${name}" is listed in order but is not installed`,
+        ),
+      });
     }
 
     const plugin = yield* loadPluginManifest(fileSystem, loader, folderPath);
-    return Option.some(plugin);
-  }).pipe(
-    Effect.catchTag('PluginLoadError', (error) =>
-      Console.error(
-        `↳ skipping plugin folder "${folderName}": ${describeCause(error.cause)}`,
-      ).pipe(Effect.as(Option.none<DiscoveredPlugin>())),
-    ),
-  );
 
-const dedupeByName = (
-  plugins: readonly DiscoveredPlugin[],
-): Effect.Effect<DiscoveredPlugin[]> =>
-  Effect.gen(function* () {
-    const seen = new Map<string, DiscoveredPlugin>();
-
-    for (const plugin of plugins) {
-      const existing = seen.get(plugin.name);
-
-      if (existing !== undefined) {
-        yield* Console.error(
-          `↳ duplicate plugin name "${plugin.name}" in "${plugin.folder}", ignoring (already loaded from "${existing.folder}")`,
-        );
-        continue;
-      }
-
-      seen.set(plugin.name, plugin);
+    if (plugin.name !== name) {
+      return yield* new PluginLoadError({
+        path: plugin.entrypoint,
+        cause: new Error(
+          `Plugin folder "${name}" declares the name "${plugin.name}"; the folder name must match the manifest name`,
+        ),
+      });
     }
 
-    return Array.from(seen.values());
+    return plugin;
   });
 
-/** Scans `~/.config/furl/plugins/`, loading every valid plugin folder. */
+/** Imports exactly the named plugin folders; unreferenced folders are never touched. */
 export const discoverPlugins = (
   fileSystem: FileSystem.FileSystem,
   loader: PluginLoader['Service'],
+  names: readonly string[],
 ): Effect.Effect<DiscoveredPlugin[], PluginLoadError> =>
+  Effect.forEach([...new Set(names)], (name) =>
+    loadPluginByName(fileSystem, loader, name),
+  );
+
+/** Names of the directories under `plugins/`, read without importing anything. */
+export const listInstalledPluginNames = (
+  fileSystem: FileSystem.FileSystem,
+): Effect.Effect<string[], PluginLoadError> =>
   Effect.gen(function* () {
-    const pluginsDirectory = yield* getPluginsDirectoryPath.pipe(
-      Effect.mapError(
-        (cause) =>
-          new PluginLoadError({ path: '~/.config/furl/plugins', cause: cause }),
-      ),
-    );
+    const pluginsDirectory = yield* readPluginsDirectoryPath;
     const pluginsDirectoryExists = yield* fileSystem
       .exists(pluginsDirectory)
       .pipe(
@@ -391,14 +401,21 @@ export const discoverPlugins = (
             new PluginLoadError({ path: pluginsDirectory, cause: cause }),
         ),
       );
-    const discovered = yield* Effect.forEach(entries, (folderName) =>
-      discoverPluginFolder(fileSystem, loader, pluginsDirectory, folderName),
+    const validEntries = entries.filter(isValidPluginName).sort();
+    const directories = yield* Effect.forEach(validEntries, (name) =>
+      fileSystem.stat(getPluginFolderPath(pluginsDirectory, name)).pipe(
+        Effect.map((info) => info.type === 'Directory'),
+        Effect.mapError(
+          (cause) =>
+            new PluginLoadError({
+              path: getPluginFolderPath(pluginsDirectory, name),
+              cause: cause,
+            }),
+        ),
+      ),
     );
-    const plugins = discovered
-      .filter(Option.isSome)
-      .map((option) => option.value);
 
-    return yield* dedupeByName(plugins);
+    return validEntries.filter((_name, index) => directories[index]);
   });
 
 export class PluginDiscovery extends Context.Service<PluginDiscovery>()(
@@ -409,7 +426,9 @@ export class PluginDiscovery extends Context.Service<PluginDiscovery>()(
       const loader = yield* PluginLoader;
 
       return {
-        discover: discoverPlugins(fileSystem, loader),
+        discover: (names: readonly string[]) =>
+          discoverPlugins(fileSystem, loader, names),
+        installedNames: listInstalledPluginNames(fileSystem),
       };
     }),
   },

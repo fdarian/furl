@@ -121,6 +121,27 @@ export class PluginInstallError extends Schema.TaggedError<PluginInstallError>(
   }
 }
 
+export class PluginNotFoundError extends Schema.TaggedError<PluginNotFoundError>(
+  'furl/PluginNotFoundError',
+)('PluginNotFoundError', {
+  name: Schema.String,
+}) {
+  override get message(): string {
+    return `No installed plugin named "${this.name}".`;
+  }
+}
+
+export class PluginUninstallError extends Schema.TaggedError<PluginUninstallError>(
+  'furl/PluginUninstallError',
+)('PluginUninstallError', {
+  name: Schema.String,
+  cause: Schema.Defect(),
+}) {
+  override get message(): string {
+    return `Failed to uninstall plugin "${this.name}": ${describeCause(this.cause)}`;
+  }
+}
+
 export const redactUrlUserInfo = (value: string): string =>
   value.replace(/(https?|ssh|git):\/\/[^/\s@]+@/gi, '$1://[redacted]@');
 

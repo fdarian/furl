@@ -23,7 +23,7 @@ Then register it in [`order`](/plugins/getting-started) so it runs.
 
 > How the plugin is identified everywhere else
 
-This is the id you write in `order` (as `plugin:<name>`) and under `plugins` in `config.json` — not the folder name. It must match `^[a-z0-9][a-z0-9_-]*$`, so it can't be `*` or start with `default:`.
+This is the id you write in `order` (as `plugin:<name>`) and under `plugins` in `config.json`, and it is also the plugin's folder name under `~/.config/furl/plugins/`. furl refuses to load a folder whose manifest `name` differs from the folder name. It must match `^[a-z0-9][a-z0-9_-]*$`, so it can't be `*` or start with `default:`.
 
 ##### match
 

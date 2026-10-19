@@ -63,8 +63,9 @@ export const removePluginConfig = (
 
   return {
     ...config,
-    ...(config.order === undefined ? {} : { order: order }),
     ...(config.plugins === undefined ? {} : { plugins: plugins }),
+    // An empty order is invalid; leaving it unset lets the default apply.
+    order: order === undefined || order.length === 0 ? undefined : order,
   };
 };
 

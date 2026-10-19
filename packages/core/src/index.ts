@@ -17,26 +17,28 @@ export {
   NoProviderKey,
   PluginInstallError,
   PluginLoadError,
+  PluginNotFoundError,
+  PluginUninstallError,
   ProviderError,
   ResolverError,
+  redactUrlUserInfo,
 } from './errors.ts';
 export type { FetchOptions, FetchResult, FurlError } from './fetch-markdown.ts';
 export { Furl, FurlLive } from './fetch-markdown.ts';
 export type { DiscoveredPlugin } from './plugin/discovery.ts';
 export {
   getPluginsDirectoryPath,
-  loadPluginManifest,
+  isValidPluginName,
   PluginDiscovery,
 } from './plugin/discovery.ts';
-export type { PluginInstallResult } from './plugin/install.ts';
-export {
-  installPlugin,
-  removeFolder,
-  validateInstalledPlugin,
-} from './plugin/install.ts';
 export { PluginLoader } from './plugin/loader.ts';
+export type {
+  InstallOutcome,
+  InstallPreview,
+  UninstallResult,
+} from './plugin/manager.ts';
+export { PluginManager } from './plugin/manager.ts';
 export {
-  insertPluginToken,
   insertProviderToken,
   pluginOrderToken,
 } from './plugin/order.ts';
