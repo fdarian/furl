@@ -1,0 +1,34 @@
+# jina [Keyless markdown proxy]
+
+Routes the fetch through [r.jina.ai](https://r.jina.ai), which renders the page and hands back markdown.
+
+It's the only provider that works without an API key, so it's the cheapest fallback to turn on.
+
+## Enable it
+
+```jsonc [~/.config/furl/config.json]
+{
+  "order": ["default:*", "default:jina"]
+}
+```
+
+Or force it for a single call:
+
+```sh
+furl https://example.com --resolvers default:jina
+```
+
+## Adding a key
+
+Optional — a key only raises your rate limit. furl reads `JINA_API_KEY` from the environment first, then falls back to the keychain:
+
+```sh
+furl secrets set jina
+```
+
+### Further reading
+
+:::details[What furl sends]
+
+`GET https://r.jina.ai/<url>` with `X-Return-Format: markdown` and `Accept: text/markdown`. When a key is present it's attached as `Authorization: Bearer <key>`.
+:::

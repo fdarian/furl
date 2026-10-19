@@ -1,46 +1,138 @@
 # furl
 
-You want an AI agent to read a documentation page, so you reach for `curl`. These are the first two lines it gives you back:
+furl is a curl replacement for AI agents: it fetches a URL and returns LLM-optimized markdown.
+
+It works nicely with [LLM-friendly websites](https://is-agentic.com/), and comes with a [set of strategies](/fetch-strategy) that detect whether a website can serve markdown — so nothing needs parsing and the whole thing runs locally.
+
+furl is also configurable and [extensible with plugins](/plugins/overview).
+
+---
+
+### See it in action
+
+:::code-group
+<div data-title="furl">
+```bash
+furl https://eve.dev/
+```
+
+Output:
+```markdown
+# eve
+
+A filesystem-first, Apache-2.0 framework for building durable backend AI agents that run on Vercel or your own infrastructure. eve is currently in beta.
+
+This file helps AI agents understand and use this documentation site.
+
+## Documentation Surfaces
+
+- [Docs](https://eve.dev/docs): Documentation section: docs
+- [Documentation index](https://eve.dev/llms.txt): Curated task-oriented map of the most useful documentation
+- [Full documentation context](https://eve.dev/llms-full.txt): All configured documentation as Markdown
+- [Semantic documentation sitemap](https://eve.dev/sitemap.md): High-level documentation map for agent navigation
+- Canonical HTML pages use `/docs/...`, `/integrations/...`, and `/templates/...` URLs.
+...
+```
+</div>
+<div data-title="curl">
+```bash
+curl https://eve.dev/
+```
+
+Output:
+```html
+<!DOCTYPE html>
+	<html 
+		data-dpl-id="dpl_96XoZyTBc2qfKfdQ21yUA4evwTz3" 
+		class="geist_f7ab312d-module__AHFjPq__variable geist_mono_f1b46983-module__KMLIlG__variable antialiased" lang="en">
+			<head>
+				<meta charSet="utf-8"/>
+				<meta name="viewport" content="width=device-width, initial-scale=1"/>
+				<link rel="preload" as="image" imageSrcSet="/_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=32&amp;q=95 32w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=48&amp;q=95 48w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=64&amp;q=95 64w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=96&amp;q=95 96w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=128&amp;q=95 128w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffal
+...
+```
+</div>
+:::
+
+## Getting started
+
+### Installation
 
 ```bash
-curl -s https://bun.sh/docs/installation | head -2
+brew install fdarian/tap/furl
 ```
 
-```text
-<!DOCTYPE html><html lang="en" class="inter_1d81deff-module__CYM0aG__variable papermono…
-function a(p){if(p==null)return"/";p=""+p;if(""===p)return"/";return"/"===p.charAt(0)?p…
+::::details[Also available via npm]
+
+:::code-group
+
+```bash [npm]
+npx furl-cli [url]
 ```
 
-Minified JavaScript. The prose you actually wanted is somewhere in the other half-megabyte, wrapped in nav chrome, script tags, and inline styles. Whatever reads this next — an agent, or you — pays for all of it.
+```bash [pnpm]
+pnpx furl-cli [url]
+```
 
-`furl` fetches the same URL and prints the page as markdown:
+```bash [bun]
+bunx furl-cli [url]
+```
+:::
+::::
+
+### First fetch
 
 ```bash
-furl https://bun.sh/docs/installation | head -6
+furl [url]
+furl https://mintlify.com
+furl https://github.com/fdarian/nisi
 ```
 
-```text
-> ## Documentation Index
-> Fetch the complete documentation index at: https://bun.com/docs/llms.txt
-> Use this file to discover all available pages before exploring further.
-
-# Installation
-
+:::code-group
+<div data-title='Direct'>
+```bash
+furl https://mintlify.com
 ```
 
-Same page, 522 KB of HTML down to 13 KB of markdown, and every byte of it is content.
+Output:
+```markdown
+# The Knowledge Platform Built for Agents
 
-## No key, no signup
+> [llms.txt](https://www.mintlify.com/llms.txt)
 
-Most fetches need neither. furl asks the origin for its own markdown before it considers converting anything, and a surprising number of sites — documentation sites especially — already publish one. Only when that fails does furl fall back to a conversion provider, and the default one is keyless.
+Self-updating documentation for startups, enterprises, and agents.
 
-## What it isn't
+URL: https://www.mintlify.com
+...
+```
 
-furl fetches one URL and prints markdown. It isn't a crawler, a scraper framework, or a headless browser. There's no caching, so the same URL hits the network every time, and no timeout, so an unresponsive origin will hang until you interrupt it.
+> Mintlify honors `Accept: text/markdown`, so it served markdown directly.
+</div>
 
-## Where to go next
+<div data-title='Firecrawl (with parsing)'>
+```bash
+furl https://github.com/fdarian/nisi
+```
 
-- [Getting started](/getting-started) — install furl and run your first fetch
-- [Fetching pages](/fetching) — flags, output streams, and exit codes
-- [How furl finds markdown](/how-it-works) — the four steps behind a fetch, and one trap worth knowing
-- [Providers](/providers) — jina, exa, firecrawl, and where API keys live
+Output:
+```markdown
+# nisi
+
+[Permalink: nisi](https://github.com/fdarian/nisi#nisi)
+
+**A simpler way to review code.**
+
+* * *
+
+**What's unique about nisi**:
+
+- Re-review only what changed since you last looked. Every other tool resets 400 lines of a reviewed file when you only added one nit. nisi snapshots your review and diffs from there.
+...
+```
+
+> A GitHub repo page doesn't serve markdown, so firecrawl handled the parsing.
+
+> :badge[Tip] You can [write your own plugin](/plugins/overview) to intercept `github.com/<org>/<repo>`, route it through the GitHub API, and format the result the way you prefer.
+</div>
+:::
+

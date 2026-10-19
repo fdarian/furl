@@ -1,0 +1,60 @@
+# Getting Started
+
+## Installing
+
+```sh
+furl plugins install https://github.com/someone/furl-x
+```
+
+
+## Uninstalling
+
+```sh
+furl plugins uninstall x
+```
+
+## Configuring
+
+### Managing interactively
+
+```sh
+furl plugins        # interactive: pick an installed plugin and configure it
+furl plugins list   # list installed plugins and whether each is in `order`
+```
+
+The interactive flow lists the installed plugins that declare `config` fields and renders a config form from the selected plugin's manifest.
+
+
+### How it's written in the config
+
+```jsonc [~/.config/furl/config.json]
+{
+  "order": ["plugin:plugin-a", "plugin:some-other-plugin", "default:*"],
+  "plugins": {
+    "plugin-a": { "apiKey": "secret:x-api-key", "mode": "metadata" }
+  }
+}
+```
+
+- `order` controls the resolver precedence chain — see [Fetch strategy](/fetch-strategy). A plugin only runs if it's listed there as `plugin:<name>`.
+- `plugins[<id>]` is the config object handed to that plugin. To disable a plugin, remove it from `order`.
+- A plugin can reference a [secret](#secrets) rather than keeping a sensitive value like an API key in plain text.
+
+## Secrets
+
+Secrets are stored in the operating system's native secret manager.
+
+Use `furl secrets set <name>` to create a new secret:
+```sh
+furl secrets set x-api-key
+```
+
+Then reference it from the config as `"secret:x-api-key"`.
+
+
+### Further reading
+
+:::details[Plugins can register secrets for you]
+
+A `secret`-typed manifest field configured via `furl plugins` does both writes for you — the value goes to the keychain, and a `{ <key>: "secret:<name>" }` reference goes into `config.json` — so plugin authors and users don't need to run `furl secrets set` and hand-edit config separately.
+:::

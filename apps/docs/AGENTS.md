@@ -6,7 +6,7 @@
 - Build command:
   - `bun run build`
 - Pages live in:
-  - `src/pages/*.mdx`
+  - `src/pages/**/*.mdx`
 - Key files:
   - `vocs.config.ts`
   - `tsconfig.json`
