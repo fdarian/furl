@@ -10,7 +10,6 @@ const makeConfig = (order: readonly string[]): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: order }),
   resolveProvider: Effect.die('unused'),
   resolveOrder: Effect.succeed(order),
-  pluginArgs: () => Effect.die('unused'),
   write: () => Effect.die('unused'),
 });
 

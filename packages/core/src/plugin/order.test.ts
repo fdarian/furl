@@ -34,7 +34,6 @@ const makeConfigStub = (
   read: Effect.succeed({ order: options.order, plugins: options.plugins }),
   resolveProvider: Effect.succeed(Option.some('jina')),
   resolveOrder: Effect.succeed(options.order ?? ['default:*']),
-  pluginArgs: (id) => Effect.succeed(options.plugins?.[id]),
   write: () => Effect.succeed(undefined),
 });
 
@@ -313,8 +312,6 @@ describe('buildResolverList', () => {
         reads += 1;
         return { plugins: { alpha: { a: 1 }, beta: { b: 2 } } };
       }),
-      pluginArgs: () =>
-        Effect.die('plugin args must come from the single read'),
     };
 
     await Effect.runPromise(
@@ -365,7 +362,7 @@ describe('buildResolverList', () => {
     };
 
     const resolver = toPluginResolver(
-      makeSecretsStub({ 'alpha.apiKey': 'real-key' }),
+      makeSecretsStub({ 'secret/alpha.apiKey': 'real-key' }),
       plugin,
       { apiKey: 'secret:alpha.apiKey', mode: 'full' },
     );

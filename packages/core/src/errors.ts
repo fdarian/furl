@@ -44,6 +44,16 @@ export class KeychainError extends Schema.TaggedError<KeychainError>(
   }
 }
 
+export class InvalidSecretError extends Schema.TaggedError<InvalidSecretError>(
+  'furl/InvalidSecretError',
+)('InvalidSecretError', {
+  reason: Schema.String,
+}) {
+  override get message(): string {
+    return this.reason;
+  }
+}
+
 export class ConfigError extends Schema.TaggedError<ConfigError>(
   'furl/ConfigError',
 )('ConfigError', {

@@ -23,7 +23,7 @@ Then register it in [`order`](/plugins/getting-started) so it runs.
 
 > How the plugin is identified everywhere else
 
-This is the id you write in `order` (as `plugin:<name>`) and under `plugins` in `config.json` — not the folder name. It can't be `*` or start with `default:`.
+This is the id you write in `order` (as `plugin:<name>`) and under `plugins` in `config.json` — not the folder name. It must match `^[a-z0-9][a-z0-9_-]*$`, so it can't be `*` or start with `default:`.
 
 ##### match
 
@@ -51,7 +51,7 @@ A declarative hostname plus an optional path pattern. furl reads it to skip the 
 
 > Optional: fields for the `furl plugins` form
 
-Each field takes a `key`, a `type` (`string`, `secret`, `boolean`, `number`, or `enum`), an optional `label` and `description`, `required`, and `options` for `enum`.
+Each field takes a `key` (letters, digits, `_` and `-`), a `type` (`string`, `secret`, `boolean`, `number`, or `enum`), an optional `label` and `description`, `required`, and `options` for `enum` (a non-empty list of strings). furl rejects a plugin whose `config` doesn't fit this shape.
 
 :::details[furl doesn't validate this]
 The list drives the CLI form, nothing more. A field too complex for a single prompt can be left off the manifest — users hand-edit `config.plugins[<id>]` instead, and furl passes the whole object through untouched. **Validating it is your plugin's job.**

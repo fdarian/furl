@@ -1,14 +1,49 @@
-import type { ConfigField, DiscoveredPlugin, KeychainError } from '@furl/core';
+import type {
+  ConfigField,
+  DiscoveredPlugin,
+  InvalidSecretError,
+  KeychainError,
+} from '@furl/core';
 import {
   FurlConfigService,
+  getGenericSecret,
   PluginDiscovery,
   Secrets,
+  secretNameFor,
   secretReferencePrefix,
+  setGenericSecret,
 } from '@furl/core';
 import type { Terminal } from 'effect';
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Prompt } from 'effect/unstable/cli';
-import { secretNameFor } from './secret-name';
+import {
+  enumChoices,
+  fieldMessage,
+  intPromptOptions,
+  optionalBooleanChoices,
+  optionalNumberPromptOptions,
+  parseOptionalNumber,
+  passwordPromptOptions,
+  stringPromptOptions,
+} from './configure-prompts';
+
+type PromptedField = {
+  value: unknown;
+  /** Written to the keychain only once every field has been answered. */
+  secret?: { name: string; value: string };
+};
+
+const hasStoredSecret = (
+  secrets: Secrets['Service'],
+  existingValue: unknown,
+) =>
+  typeof existingValue === 'string' &&
+  existingValue.startsWith(secretReferencePrefix)
+    ? getGenericSecret(
+        secrets,
+        existingValue.slice(secretReferencePrefix.length),
+      ).pipe(Effect.map((stored) => stored !== null))
+    : Effect.succeed(false);
 
 /** `None` means "leave the existing value untouched". */
 const promptConfigField = (
@@ -16,21 +51,20 @@ const promptConfigField = (
   field: ConfigField,
   existingValue: unknown,
 ): Effect.Effect<
-  Option.Option<unknown>,
-  KeychainError | Terminal.QuitError,
+  Option.Option<PromptedField>,
+  KeychainError | InvalidSecretError | Terminal.QuitError,
   Secrets | Prompt.Environment
 > =>
   Effect.gen(function* () {
-    const label = field.label ?? field.key;
-    const description = field.description ? ` - ${field.description}` : '';
-    const optionalHint = field.required
-      ? ''
-      : ' (optional, press enter to skip)';
-    const message = `${label}${description}${optionalHint}`;
-
     if (field.type === 'secret') {
       const secrets = yield* Secrets;
-      const entered = yield* Prompt.Password({ message: message });
+      const stored = yield* hasStoredSecret(secrets, existingValue);
+      const entered = yield* Prompt.Password(
+        passwordPromptOptions(
+          fieldMessage(field, stored),
+          field.required === true && !stored,
+        ),
+      );
       const value = Redacted.value(entered);
 
       if (value.length === 0) {
@@ -38,77 +72,96 @@ const promptConfigField = (
       }
 
       const secretName = secretNameFor(pluginId, field.key);
-      yield* secrets.set(secretName, value);
-      return Option.some(`${secretReferencePrefix}${secretName}`);
+      return Option.some({
+        value: `${secretReferencePrefix}${secretName}`,
+        secret: { name: secretName, value: value },
+      });
     }
 
+    const message = fieldMessage(field, false);
+
     if (field.type === 'boolean') {
-      const value = yield* Prompt.Confirm({
+      if (field.required) {
+        const value = yield* Prompt.Confirm({
+          message: message,
+          initial: typeof existingValue === 'boolean' ? existingValue : false,
+        });
+        return Option.some({ value: value });
+      }
+
+      const selected = yield* Prompt.Select({
         message: message,
-        initial: typeof existingValue === 'boolean' ? existingValue : false,
+        choices: optionalBooleanChoices,
       });
-      return Option.some(value);
+      return selected === null
+        ? Option.none()
+        : Option.some({ value: selected });
     }
 
     if (field.type === 'number') {
-      const value = yield* Prompt.Int({
-        message: message,
-        default: typeof existingValue === 'number' ? existingValue : undefined,
-      });
-      return Option.some(value);
+      if (field.required) {
+        const value = yield* Prompt.Int(
+          intPromptOptions(message, existingValue),
+        );
+        return Option.some({ value: value });
+      }
+
+      const input = yield* Prompt.String(
+        optionalNumberPromptOptions(message, existingValue),
+      );
+      return Option.map(parseOptionalNumber(input), (value) => ({
+        value: value,
+      }));
     }
 
     if (field.type === 'enum') {
-      const choices = (field.options ?? []).map((option) => ({
-        title: option,
-        value: option as string | null,
-      }));
       const selected = yield* Prompt.Select({
         message: message,
-        choices: field.required
-          ? choices
-          : [...choices, { title: '(skip)', value: null }],
+        choices: enumChoices(field, existingValue),
       });
-      return selected === null ? Option.none() : Option.some(selected);
+      return selected === null
+        ? Option.none()
+        : Option.some({ value: selected });
     }
 
-    const value = yield* Prompt.String({
-      message: message,
-      default: typeof existingValue === 'string' ? existingValue : undefined,
-      validate: field.required
-        ? (input: string) =>
-            input.trim().length === 0
-              ? Effect.fail('This field is required.')
-              : Effect.succeed(input)
-        : undefined,
-    });
+    const value = yield* Prompt.String(
+      stringPromptOptions(message, field, existingValue),
+    );
 
     if (value.length === 0 && !field.required) {
       return Option.none();
     }
 
-    return Option.some(value);
+    return Option.some({ value: value });
   });
 
 const configurePlugin = (plugin: DiscoveredPlugin) =>
   Effect.gen(function* () {
     const configService = yield* FurlConfigService;
+    const secrets = yield* Secrets;
     const config = yield* configService.read;
     const existingArgs = config.plugins?.[plugin.name] ?? {};
     const updatedArgs: Record<string, unknown> = { ...existingArgs };
+    const pendingSecrets: Array<{ name: string; value: string }> = [];
 
     for (const field of plugin.manifest.config ?? []) {
-      const value = yield* promptConfigField(
+      const prompted = yield* promptConfigField(
         plugin.name,
         field,
         existingArgs[field.key],
       );
 
-      if (Option.isSome(value)) {
-        updatedArgs[field.key] = value.value;
+      if (Option.isSome(prompted)) {
+        updatedArgs[field.key] = prompted.value.value;
+        if (prompted.value.secret !== undefined) {
+          pendingSecrets.push(prompted.value.secret);
+        }
       }
     }
 
+    yield* Effect.forEach(pendingSecrets, (pending) =>
+      setGenericSecret(secrets, pending.name, pending.value),
+    );
     yield* configService.write({
       ...config,
       plugins: { ...config.plugins, [plugin.name]: updatedArgs },
