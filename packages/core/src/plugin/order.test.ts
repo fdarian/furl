@@ -5,19 +5,22 @@ import type {
   FurlConfigServiceShape,
   PluginConfigValue,
 } from '../config-service.ts';
+import { ConfigError, describeCause, ResolverError } from '../errors.ts';
 import type { DiscoveredPlugin } from './discovery.ts';
+import { runResolvers } from './engine.ts';
 import {
   buildResolverList,
+  hasPluginToken,
   insertPluginToken,
   insertProviderToken,
   matchesUrl,
   parseOrderToken,
+  parseOrderTokens,
   toPluginResolver,
 } from './order.ts';
 import type { Resolver } from './resolver.ts';
-import { computeSpecificity } from './resolver.ts';
 import { makeSecretsStub } from './test-doubles.ts';
-import { ResolveDecline } from './types.ts';
+import { ResolveDecline, ResolveSuccess } from './types.ts';
 
 const runFail = <A, E>(effect: Effect.Effect<A, E>): Promise<E> =>
   Effect.runPromise(Effect.flip(effect));
@@ -29,7 +32,7 @@ const makeConfigStub = (
   } = {},
 ): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: options.order, plugins: options.plugins }),
-  resolveProvider: () => Effect.succeed(Option.some('jina')),
+  resolveProvider: Effect.succeed(Option.some('jina')),
   resolveOrder: Effect.succeed(options.order ?? ['default:*']),
   pluginArgs: (id) => Effect.succeed(options.plugins?.[id]),
   write: () => Effect.succeed(undefined),
@@ -54,7 +57,6 @@ const makeDefaultResolvers = (): Resolver[] =>
     id: id,
     isDefault: true,
     match: null,
-    specificity: -1,
     run: () => Effect.succeed(new ResolveDecline()),
   }));
 
@@ -147,20 +149,76 @@ describe('matchesUrl', () => {
   });
 });
 
+describe('parseOrderTokens', () => {
+  it('parses every token in order', async () => {
+    const tokens = await Effect.runPromise(
+      parseOrderTokens(['plugin:alpha', 'default:*', 'default:jina']),
+    );
+
+    expect(tokens).toEqual([
+      { _tag: 'plugin', name: 'alpha' },
+      { _tag: 'default-wildcard' },
+      { _tag: 'default', name: 'jina' },
+    ]);
+  });
+
+  it('fails on the first invalid token', async () => {
+    const error = await runFail(parseOrderTokens(['default:*', 'bogus']));
+
+    expect(error._tag).toBe('ConfigError');
+    expect(error.message).toContain('Invalid order token "bogus"');
+  });
+
+  it('detects plugin tokens only when one is present', async () => {
+    const withPlugin = await Effect.runPromise(
+      parseOrderTokens(['default:raw', 'plugin:alpha']),
+    );
+    const withoutPlugin = await Effect.runPromise(
+      parseOrderTokens(['default:*', 'default:jina']),
+    );
+
+    expect(hasPluginToken(withPlugin)).toBe(true);
+    expect(hasPluginToken(withoutPlugin)).toBe(false);
+  });
+});
+
 describe('buildResolverList', () => {
   const url = new URL('https://x.com/someone/status/123');
   const secrets = makeSecretsStub();
   const defaultResolvers = makeDefaultResolvers();
 
+  const build = (
+    config: FurlConfigServiceShape,
+    order: readonly string[],
+    options: {
+      defaults?: readonly Resolver[];
+      plugins?: readonly DiscoveredPlugin[];
+      secrets?: ReturnType<typeof makeSecretsStub>;
+    } = {},
+  ) =>
+    Effect.gen(function* () {
+      const parsedTokens = yield* parseOrderTokens(order);
+      return yield* buildResolverList(
+        config,
+        options.secrets ?? secrets,
+        url,
+        options.defaults ?? defaultResolvers,
+        options.plugins ?? [],
+        parsedTokens,
+      );
+    });
+
+  const onlyResolver = (resolvers: readonly Resolver[]): Resolver => {
+    const resolver = resolvers[0];
+    if (resolver === undefined) {
+      throw new Error('expected a resolver');
+    }
+    return resolver;
+  };
+
   it('expands default:* to raw, direct, and md-suffix only', async () => {
     const result = await Effect.runPromise(
-      buildResolverList(
-        makeConfigStub({ order: ['default:*'] }),
-        secrets,
-        url,
-        defaultResolvers,
-        [],
-      ),
+      build(makeConfigStub(), ['default:*']),
     );
 
     expect(result.map((resolver) => resolver.id)).toEqual([
@@ -170,37 +228,20 @@ describe('buildResolverList', () => {
     ]);
   });
 
-  it('uses only keyless built-ins when the config has no explicit order', async () => {
-    const result = await Effect.runPromise(
-      buildResolverList(makeConfigStub(), secrets, url, defaultResolvers, []),
-    );
+  it('rejects an empty order', async () => {
+    const error = await runFail(build(makeConfigStub(), []));
 
-    expect(result.map((resolver) => resolver.id)).toEqual([
-      'raw',
-      'direct',
-      'md-suffix',
-    ]);
+    expect(error._tag).toBe('ConfigError');
+    expect(error.message).toBe('order must contain at least one token');
   });
 
   it('runs a discovered plugin only when plugin:<name> is listed', async () => {
     const plugin = makePlugin('alpha');
     const discovered = await Effect.runPromise(
-      buildResolverList(
-        makeConfigStub({ order: ['default:*'] }),
-        secrets,
-        url,
-        defaultResolvers,
-        [plugin],
-      ),
+      build(makeConfigStub(), ['default:*'], { plugins: [plugin] }),
     );
     const listed = await Effect.runPromise(
-      buildResolverList(
-        makeConfigStub({ order: ['plugin:alpha'] }),
-        secrets,
-        url,
-        defaultResolvers,
-        [plugin],
-      ),
+      build(makeConfigStub(), ['plugin:alpha'], { plugins: [plugin] }),
     );
 
     expect(discovered.map((resolver) => resolver.id)).not.toContain('alpha');
@@ -208,47 +249,20 @@ describe('buildResolverList', () => {
   });
 
   it('rejects a plugin token when the plugin was not discovered', async () => {
-    const error = await runFail(
-      buildResolverList(
-        makeConfigStub({ order: ['plugin:missing'] }),
-        secrets,
-        url,
-        defaultResolvers,
-        [],
-      ),
-    );
+    const error = await runFail(build(makeConfigStub(), ['plugin:missing']));
 
     expect(error._tag).toBe('ConfigError');
-    expect(String(error.cause)).toContain('missing');
-  });
-
-  it('reports a clear config error when plugins are disabled for a plugin token', async () => {
-    const error = await runFail(
-      buildResolverList(
-        makeConfigStub({ order: ['plugin:alpha'] }),
-        secrets,
-        url,
-        defaultResolvers,
-        [],
-      ),
-    );
-
-    expect(error.message).toBe(
-      'Unknown or undiscovered plugin "alpha" in order',
-    );
+    expect(error.message).toContain('missing');
   });
 
   it('keeps the first occurrence when tokens duplicate a resolver', async () => {
     const result = await Effect.runPromise(
-      buildResolverList(
-        makeConfigStub({
-          order: ['default:jina', 'default:jina', 'default:*', 'default:raw'],
-        }),
-        secrets,
-        url,
-        defaultResolvers,
-        [],
-      ),
+      build(makeConfigStub(), [
+        'default:jina',
+        'default:jina',
+        'default:*',
+        'default:raw',
+      ]),
     );
 
     expect(result.map((resolver) => resolver.id)).toEqual([
@@ -261,13 +275,9 @@ describe('buildResolverList', () => {
 
   it('keeps a plugin and built-in with the same name in separate namespaces', async () => {
     const result = await Effect.runPromise(
-      buildResolverList(
-        makeConfigStub({ order: ['plugin:jina', 'default:jina'] }),
-        secrets,
-        url,
-        defaultResolvers,
-        [makePlugin('jina')],
-      ),
+      build(makeConfigStub(), ['plugin:jina', 'default:jina'], {
+        plugins: [makePlugin('jina')],
+      }),
     );
 
     expect(
@@ -283,33 +293,53 @@ describe('buildResolverList', () => {
       return { markdown: '# alpha' };
     };
     const config = makeConfigStub({
-      order: ['plugin:alpha'],
       plugins: { alpha: { mode: 'full' } },
     });
-    const resolver = await Effect.runPromise(
-      buildResolverList(config, secrets, url, [], [plugin]),
-    );
 
-    const firstResolver = resolver[0];
-    if (firstResolver === undefined) {
-      throw new Error('expected a plugin resolver');
-    }
-    const outcome = await Effect.runPromise(firstResolver.run(url));
+    const resolvers = await Effect.runPromise(
+      build(config, ['plugin:alpha'], { defaults: [], plugins: [plugin] }),
+    );
+    const outcome = await Effect.runPromise(onlyResolver(resolvers).run(url));
 
     expect(outcome._tag).toBe('success');
     expect(receivedConfig).toEqual({ mode: 'full' });
   });
 
-  it('ranks path specificity for plugin metadata', () => {
-    const broad = makePlugin('broad');
-    const narrow = makePlugin('narrow', {
-      hostname: 'x.com',
-      path: '/*/status/*',
-    });
+  it('reads the config once for every plugin, and not at all without plugin tokens', async () => {
+    let reads = 0;
+    const config: FurlConfigServiceShape = {
+      ...makeConfigStub({ plugins: { alpha: { a: 1 }, beta: { b: 2 } } }),
+      read: Effect.sync(() => {
+        reads += 1;
+        return { plugins: { alpha: { a: 1 }, beta: { b: 2 } } };
+      }),
+      pluginArgs: () =>
+        Effect.die('plugin args must come from the single read'),
+    };
 
-    expect(computeSpecificity(narrow.manifest.match)).toBeGreaterThan(
-      computeSpecificity(broad.manifest.match),
+    await Effect.runPromise(
+      build(config, ['plugin:alpha', 'plugin:beta'], {
+        plugins: [makePlugin('alpha'), makePlugin('beta')],
+      }),
     );
+    expect(reads).toBe(1);
+
+    await Effect.runPromise(build(config, ['default:*']));
+    expect(reads).toBe(1);
+  });
+
+  it('fails the build when the config cannot be read', async () => {
+    const config: FurlConfigServiceShape = {
+      ...makeConfigStub(),
+      read: Effect.fail(new ConfigError({ cause: new Error('corrupt') })),
+    };
+
+    const error = await runFail(
+      build(config, ['plugin:alpha'], { plugins: [makePlugin('alpha')] }),
+    );
+
+    expect(error._tag).toBe('ConfigError');
+    expect(error.message).toBe('corrupt');
   });
 
   it('adapts a plugin resolver with no configured args to an empty config object', async () => {
@@ -320,7 +350,7 @@ describe('buildResolverList', () => {
       return null;
     };
 
-    const resolver = toPluginResolver(secrets, makeConfigStub(), plugin);
+    const resolver = toPluginResolver(secrets, plugin, undefined);
     await Effect.runPromise(resolver.run(url));
 
     expect(receivedConfig).toEqual({});
@@ -333,36 +363,115 @@ describe('buildResolverList', () => {
       receivedConfig = context.config;
       return null;
     };
-    const config = makeConfigStub({
-      plugins: { alpha: { apiKey: 'secret:alpha.apiKey', mode: 'full' } },
-    });
 
     const resolver = toPluginResolver(
       makeSecretsStub({ 'alpha.apiKey': 'real-key' }),
-      config,
       plugin,
+      { apiKey: 'secret:alpha.apiKey', mode: 'full' },
     );
     await Effect.runPromise(resolver.run(url));
 
     expect(receivedConfig).toEqual({ apiKey: 'real-key', mode: 'full' });
   });
 
-  it('fails with a ResolverError without running the plugin when a referenced secret is missing', async () => {
+  it('fails with a ConfigError without running the plugin when a referenced secret is missing', async () => {
     const plugin = makePlugin('alpha');
     let invoked = false;
     plugin.manifest.resolve = () => {
       invoked = true;
       return null;
     };
-    const config = makeConfigStub({
-      plugins: { alpha: { apiKey: 'secret:alpha.apiKey' } },
-    });
 
-    const resolver = toPluginResolver(makeSecretsStub(), config, plugin);
+    const resolver = toPluginResolver(makeSecretsStub(), plugin, {
+      apiKey: 'secret:alpha.apiKey',
+    });
     const error = await runFail(resolver.run(url));
 
-    expect(error._tag).toBe('ResolverError');
-    expect(error.id).toBe('alpha');
+    expect(error._tag).toBe('ConfigError');
     expect(invoked).toBe(false);
+  });
+
+  it('aborts the chain when a plugin secret is missing instead of trying the next resolver', async () => {
+    const plugin = makePlugin('alpha');
+    const resolvers = await Effect.runPromise(
+      build(
+        makeConfigStub({
+          plugins: { alpha: { apiKey: 'secret:alpha.apiKey' } },
+        }),
+        ['plugin:alpha', 'default:*'],
+        { plugins: [plugin] },
+      ),
+    );
+
+    const error = await runFail(runResolvers(url, resolvers));
+
+    expect(error._tag).toBe('ConfigError');
+  });
+});
+
+describe('plugin resolve results', () => {
+  const url = new URL('https://x.com/a');
+
+  const runPlugin = (result: unknown) => {
+    const plugin = makePlugin('alpha');
+    plugin.manifest.resolve = () =>
+      result as ReturnType<DiscoveredPlugin['manifest']['resolve']>;
+    return toPluginResolver(makeSecretsStub(), plugin, undefined).run(url);
+  };
+
+  it('treats null and undefined as a decline', async () => {
+    expect(await Effect.runPromise(runPlugin(null))).toEqual(
+      new ResolveDecline(),
+    );
+    expect(await Effect.runPromise(runPlugin(undefined))).toEqual(
+      new ResolveDecline(),
+    );
+  });
+
+  it('treats { markdown: string } as success, including an empty string', async () => {
+    expect(await Effect.runPromise(runPlugin({ markdown: '# hi' }))).toEqual(
+      new ResolveSuccess({ markdown: '# hi' }),
+    );
+    expect(await Effect.runPromise(runPlugin({ markdown: '' }))).toEqual(
+      new ResolveSuccess({ markdown: '' }),
+    );
+  });
+
+  it.each([
+    ['a bare string', '# hi'],
+    ['a number', 42],
+    ['an array', []],
+    ['an object without markdown', { text: '# hi' }],
+    ['an object with a non-string markdown', { markdown: 1 }],
+  ])('fails with a ResolverError for %s', async (_label, value) => {
+    const error = await runFail(runPlugin(value));
+
+    expect(error._tag).toBe('ResolverError');
+    if (!(error instanceof ResolverError)) {
+      throw new Error(`expected ResolverError, got ${error._tag}`);
+    }
+    expect(error.id).toBe('alpha');
+    expect(describeCause(error.cause)).toContain('{ markdown: string }');
+  });
+
+  it('records a malformed result and lets the chain continue', async () => {
+    const plugin = makePlugin('alpha');
+    plugin.manifest.resolve = () =>
+      'oops' as unknown as ReturnType<DiscoveredPlugin['manifest']['resolve']>;
+    const fallback: Resolver = {
+      id: 'fallback',
+      isDefault: false,
+      match: null,
+      run: () => Effect.succeed(new ResolveSuccess({ markdown: '# next' })),
+    };
+
+    const result = await Effect.runPromise(
+      runResolvers(url, [
+        toPluginResolver(makeSecretsStub(), plugin, undefined),
+        fallback,
+      ]),
+    );
+
+    expect(result.source).toBe('plugin:fallback');
   });
 });

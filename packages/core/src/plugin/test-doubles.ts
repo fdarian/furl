@@ -5,7 +5,7 @@ import {
   HttpClientResponse,
 } from 'effect/unstable/http';
 
-import { matchAnySpecificity, type Resolver } from './resolver.ts';
+import type { Resolver } from './resolver.ts';
 import { ResolveDecline, type ResolveOutcome } from './types.ts';
 
 export const makeSecretsStub = (
@@ -32,7 +32,6 @@ export const makeResolverStub = (
 ): Resolver => ({
   isDefault: false,
   match: null,
-  specificity: matchAnySpecificity,
   run: () => Effect.succeed<ResolveOutcome>(new ResolveDecline()),
   ...overrides,
 });

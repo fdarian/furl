@@ -1,30 +1,16 @@
 import type { Effect } from 'effect';
 
-import type { ResolverError } from '../errors.ts';
+import type { ConfigError, ResolverError } from '../errors.ts';
 import type { MatchPattern, ResolveOutcome } from './types.ts';
 
 export type Resolver = {
   id: string;
   isDefault: boolean;
   match: MatchPattern | null;
-  specificity: number;
-  run: (url: URL) => Effect.Effect<ResolveOutcome, ResolverError>;
+  /** A `ConfigError` aborts the chain; a `ResolverError` is recorded and the chain continues. */
+  run: (url: URL) => Effect.Effect<ResolveOutcome, ResolverError | ConfigError>;
 };
 
-export const matchAnySpecificity = -1;
-
-export const computeSpecificity = (match: MatchPattern | null): number => {
-  if (match === null) {
-    return matchAnySpecificity;
-  }
-
-  if (match.path === undefined) {
-    return 0;
-  }
-
-  const literalSegmentCount = match.path
-    .split('/')
-    .filter((segment) => segment.length > 0 && segment !== '*').length;
-
-  return literalSegmentCount + 1;
-};
+/** The order token that selects this resolver, e.g. `default:jina` or `plugin:x`. */
+export const resolverIdentity = (resolver: Resolver): string =>
+  `${resolver.isDefault ? 'default' : 'plugin'}:${resolver.id}`;

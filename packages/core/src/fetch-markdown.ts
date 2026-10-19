@@ -7,15 +7,17 @@ import type {
   AllResolversFailed,
   ConfigError,
   PluginLoadError,
-  ResolverError,
 } from './errors.ts';
 import { FetchError } from './errors.ts';
 import { createDefaultResolvers } from './plugin/default/index.ts';
 import { PluginDiscovery } from './plugin/discovery.ts';
 import { runResolvers } from './plugin/engine.ts';
 import { PluginLoader } from './plugin/loader.ts';
-import { buildResolverList } from './plugin/order.ts';
-import type { ProviderName } from './provider-name.ts';
+import {
+  buildResolverList,
+  hasPluginToken,
+  parseOrderTokens,
+} from './plugin/order.ts';
 import type { SecretsService } from './secrets-service.ts';
 import { Secrets, SecretsLive } from './secrets-service.ts';
 
@@ -33,16 +35,10 @@ export type FurlError =
   | AllResolversFailed
   | ConfigError
   | FetchError
-  | PluginLoadError
-  | ResolverError;
+  | PluginLoadError;
 
 type HttpClientService = Context.Service.Shape<typeof HttpClient.HttpClient>;
 type PluginDiscoveryService = Context.Service.Shape<typeof PluginDiscovery>;
-
-const isPluginToken = (token: string): boolean => token.startsWith('plugin:');
-
-export const shouldDiscoverPlugins = (order: readonly string[]): boolean =>
-  order.some(isPluginToken);
 
 const effectiveOrder = (
   config: FurlConfigServiceShape,
@@ -53,7 +49,7 @@ const effectiveOrder = (
     : Effect.succeed(options.resolvers);
 };
 
-const fetchMarkdown = (
+export const fetchMarkdown = (
   client: HttpClientService,
   config: FurlConfigServiceShape,
   secrets: SecretsService,
@@ -62,11 +58,7 @@ const fetchMarkdown = (
   options: FetchOptions,
 ): Effect.Effect<
   FetchResult,
-  | ConfigError
-  | FetchError
-  | PluginLoadError
-  | AllResolversFailed
-  | ResolverError
+  ConfigError | FetchError | PluginLoadError | AllResolversFailed
 > =>
   Effect.gen(function* () {
     const parsedUrl = yield* Effect.try({
@@ -77,7 +69,8 @@ const fetchMarkdown = (
 
     const defaultResolvers = createDefaultResolvers(client, secrets);
     const order = yield* effectiveOrder(config, options);
-    const discoveredPlugins = shouldDiscoverPlugins(order)
+    const parsedTokens = yield* parseOrderTokens(order);
+    const discoveredPlugins = hasPluginToken(parsedTokens)
       ? yield* discovery.discover
       : [];
     const resolverList = yield* buildResolverList(
@@ -86,7 +79,7 @@ const fetchMarkdown = (
       parsedUrl,
       defaultResolvers,
       discoveredPlugins,
-      order,
+      parsedTokens,
     );
 
     return yield* runResolvers(parsedUrl, resolverList);
@@ -98,10 +91,6 @@ export class Furl extends Context.Service<
     fetch: (
       url: string,
       options?: FetchOptions,
-    ) => Effect.Effect<FetchResult, FurlError>;
-    fetchWithProvider: (
-      url: string,
-      provider: ProviderName,
     ) => Effect.Effect<FetchResult, FurlError>;
   }
 >()('furl/core') {}
@@ -117,10 +106,6 @@ export const FurlLive = Layer.effect(
     return {
       fetch: (url: string, options?: FetchOptions) =>
         fetchMarkdown(client, config, secrets, discovery, url, options ?? {}),
-      fetchWithProvider: (url: string, provider: ProviderName) =>
-        fetchMarkdown(client, config, secrets, discovery, url, {
-          resolvers: ['default:*', `default:${provider}`],
-        }),
     };
   }),
 ).pipe(

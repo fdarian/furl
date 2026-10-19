@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 
-import { ResolverError } from '../errors.ts';
+import { ConfigError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 
 export const secretReferencePrefix = 'secret:';
@@ -9,18 +9,22 @@ const resolveSecretReference = (
   secrets: SecretsService,
   pluginId: string,
   secretName: string,
-): Effect.Effect<string, ResolverError> =>
+): Effect.Effect<string, ConfigError> =>
   secrets.get(secretName).pipe(
     Effect.mapError(
-      (cause) => new ResolverError({ id: pluginId, cause: cause }),
+      (cause) =>
+        new ConfigError({
+          cause: new Error(
+            `Cannot read secret "${secretName}" referenced by plugin "${pluginId}": ${cause.message}`,
+          ),
+        }),
     ),
     Effect.flatMap((secretValue) =>
       secretValue === null
         ? Effect.fail(
-            new ResolverError({
-              id: pluginId,
+            new ConfigError({
               cause: new Error(
-                `Missing secret "${secretName}" referenced by plugin config`,
+                `Missing secret "${secretName}" referenced by plugin "${pluginId}" config`,
               ),
             }),
           )
@@ -33,7 +37,7 @@ const resolveValue = (
   secrets: SecretsService,
   pluginId: string,
   value: unknown,
-): Effect.Effect<unknown, ResolverError> => {
+): Effect.Effect<unknown, ConfigError> => {
   if (typeof value === 'string' && value.startsWith(secretReferencePrefix)) {
     return resolveSecretReference(
       secrets,
@@ -64,7 +68,7 @@ export const resolvePluginConfig = (
   secrets: SecretsService,
   pluginId: string,
   args: Record<string, unknown> | undefined,
-): Effect.Effect<Record<string, unknown>, ResolverError> =>
+): Effect.Effect<Record<string, unknown>, ConfigError> =>
   Effect.gen(function* () {
     if (args === undefined) {
       return {};

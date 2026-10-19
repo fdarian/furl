@@ -1,6 +1,9 @@
 import { Effect } from 'effect';
 
-import type { FurlConfigServiceShape } from '../config-service.ts';
+import type {
+  FurlConfigServiceShape,
+  PluginConfigValue,
+} from '../config-service.ts';
 import { ConfigError, ResolverError } from '../errors.ts';
 import { type ProviderName, providerNames } from '../provider-name.ts';
 import type { SecretsService } from '../secrets-service.ts';
@@ -11,7 +14,7 @@ import {
 } from './default/shared.ts';
 import type { DiscoveredPlugin } from './discovery.ts';
 import { resolvePluginConfig } from './resolve-config.ts';
-import { computeSpecificity, type Resolver } from './resolver.ts';
+import { type Resolver, resolverIdentity } from './resolver.ts';
 import {
   type MatchPattern,
   ResolveDecline,
@@ -19,7 +22,7 @@ import {
   ResolveSuccess,
 } from './types.ts';
 
-type OrderToken =
+export type OrderToken =
   | { _tag: 'default-wildcard' }
   | { _tag: 'default'; name: DefaultResolverName }
   | { _tag: 'plugin'; name: string };
@@ -136,6 +139,14 @@ export const parseOrderToken = (
   return Effect.fail(invalidTokenError(token));
 };
 
+export const parseOrderTokens = (
+  tokens: readonly string[],
+): Effect.Effect<OrderToken[], ConfigError> =>
+  Effect.forEach(tokens, parseOrderToken);
+
+export const hasPluginToken = (tokens: readonly OrderToken[]): boolean =>
+  tokens.some((token) => token._tag === 'plugin');
+
 const matchPathPattern = (pattern: string, pathname: string): boolean => {
   const patternSegments = pattern
     .split('/')
@@ -170,29 +181,46 @@ export const matchesUrl = (match: MatchPattern | null, url: URL): boolean => {
   return matchPathPattern(match.path, url.pathname);
 };
 
+const toPluginOutcome = (
+  pluginName: string,
+  result: unknown,
+): Effect.Effect<ResolveOutcome, ResolverError> => {
+  if (result === null || result === undefined) {
+    return Effect.succeed(new ResolveDecline());
+  }
+
+  if (
+    typeof result === 'object' &&
+    'markdown' in result &&
+    typeof result.markdown === 'string'
+  ) {
+    return Effect.succeed(new ResolveSuccess({ markdown: result.markdown }));
+  }
+
+  return Effect.fail(
+    new ResolverError({
+      id: pluginName,
+      cause: new Error(
+        `Plugin "${pluginName}" must return { markdown: string } or null from resolve()`,
+      ),
+    }),
+  );
+};
+
 export const toPluginResolver = (
   secrets: SecretsService,
-  configService: FurlConfigServiceShape,
   plugin: DiscoveredPlugin,
+  args: PluginConfigValue | undefined,
 ): Resolver => ({
   id: plugin.manifest.name,
   isDefault: false,
   match: plugin.manifest.match,
-  specificity: computeSpecificity(plugin.manifest.match),
   run: (url) =>
     Effect.gen(function* () {
-      const configuredArgs = yield* configService
-        .pluginArgs(plugin.manifest.name)
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new ResolverError({ id: plugin.manifest.name, cause: cause }),
-          ),
-        );
       const resolvedConfig = yield* resolvePluginConfig(
         secrets,
         plugin.manifest.name,
-        configuredArgs,
+        args,
       );
 
       const result = yield* Effect.tryPromise({
@@ -208,18 +236,9 @@ export const toPluginResolver = (
           new ResolverError({ id: plugin.manifest.name, cause: cause }),
       });
 
-      if (result === null) {
-        return new ResolveDecline() satisfies ResolveOutcome;
-      }
-
-      return new ResolveSuccess({
-        markdown: result.markdown,
-      }) satisfies ResolveOutcome;
+      return yield* toPluginOutcome(plugin.manifest.name, result);
     }),
 });
-
-const resolverIdentity = (resolver: Resolver): string =>
-  `${resolver.isDefault ? 'default' : 'plugin'}:${resolver.id}`;
 
 const orderConfigError = (message: string): ConfigError =>
   new ConfigError({ cause: new Error(message) });
@@ -230,14 +249,16 @@ export const buildResolverList = (
   url: URL,
   defaultResolvers: readonly Resolver[],
   discoveredPlugins: readonly DiscoveredPlugin[],
-  orderOverride?: readonly string[],
+  parsedTokens: readonly OrderToken[],
 ): Effect.Effect<Resolver[], ConfigError> =>
   Effect.gen(function* () {
-    const orderTokens =
-      orderOverride === undefined
-        ? yield* configService.resolveOrder
-        : orderOverride;
-    const parsedTokens = yield* Effect.forEach(orderTokens, parseOrderToken);
+    if (parsedTokens.length === 0) {
+      return yield* orderConfigError('order must contain at least one token');
+    }
+
+    const pluginConfigs = hasPluginToken(parsedTokens)
+      ? (yield* configService.read).plugins
+      : undefined;
 
     const pluginByName = new Map<string, DiscoveredPlugin>();
     for (const plugin of discoveredPlugins) {
@@ -281,7 +302,7 @@ export const buildResolverList = (
       if (!pluginResolvers.has(parsedToken.name)) {
         pluginResolvers.set(
           parsedToken.name,
-          toPluginResolver(secrets, configService, plugin),
+          toPluginResolver(secrets, plugin, pluginConfigs?.[parsedToken.name]),
         );
       }
     }
