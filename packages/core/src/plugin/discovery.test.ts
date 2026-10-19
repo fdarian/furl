@@ -203,6 +203,25 @@ describe('loadPluginManifest', () => {
     expect(error._tag).toBe('PluginLoadError');
     expect(String(error.cause)).toContain('outside the plugin folder');
   });
+
+  it('rejects a default index.ts that escapes the plugin folder via a symlink', async () => {
+    const folder = path.join(tempDir, 'symlinked-index');
+    fs.mkdirSync(folder, { recursive: true });
+    const outsideDir = path.join(tempDir, 'symlink-index-target');
+    fs.mkdirSync(outsideDir, { recursive: true });
+    fs.writeFileSync(path.join(outsideDir, 'index.ts'), '');
+    fs.symlinkSync(
+      path.join(outsideDir, 'index.ts'),
+      path.join(folder, 'index.ts'),
+    );
+
+    const error = await runWithFileSystem((fileSystem) =>
+      Effect.flip(loadPluginManifest(fileSystem, makeLoaderStub({}), folder)),
+    );
+
+    expect(error._tag).toBe('PluginLoadError');
+    expect(String(error.cause)).toContain('outside the plugin folder');
+  });
 });
 
 describe('discoverPlugins', () => {

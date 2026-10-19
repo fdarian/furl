@@ -5,7 +5,11 @@ import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, Layer, Option } from 'effect';
 
-import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';
+import {
+  FurlConfigService,
+  FurlConfigServiceLive,
+  removePluginConfig,
+} from './config-service.ts';
 
 const configLayer = FurlConfigServiceLive.pipe(
   Layer.provide(BunFileSystem.layer),
@@ -207,5 +211,20 @@ describe('FurlConfigService', () => {
     expect(written).toContain('"alpha"');
     expect(written).not.toContain('"default:exa"');
     expect(written).not.toContain('"provider"');
+  });
+
+  it('removes a plugin token and its config entry', () => {
+    expect(
+      removePluginConfig(
+        {
+          order: ['plugin:alpha', 'default:*', 'plugin:beta'],
+          plugins: { alpha: { mode: 'full' }, beta: { mode: 'fast' } },
+        },
+        'alpha',
+      ),
+    ).toEqual({
+      order: ['default:*', 'plugin:beta'],
+      plugins: { beta: { mode: 'fast' } },
+    });
   });
 });

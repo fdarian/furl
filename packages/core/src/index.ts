@@ -6,6 +6,7 @@ export type {
 export {
   FurlConfigService,
   FurlConfigServiceLive,
+  removePluginConfig,
 } from './config-service.ts';
 export {
   AllResolversFailed,
@@ -13,6 +14,7 @@ export {
   FetchError,
   KeychainError,
   NoProviderKey,
+  PluginInstallError,
   PluginLoadError,
   ProviderError,
   ResolverError,
@@ -25,8 +27,18 @@ export {
   loadPluginManifest,
   PluginDiscovery,
 } from './plugin/discovery.ts';
+export type { PluginInstallResult } from './plugin/install.ts';
+export {
+  installPlugin,
+  removeFolder,
+  validateInstalledPlugin,
+} from './plugin/install.ts';
 export { PluginLoader } from './plugin/loader.ts';
-export { insertProviderToken } from './plugin/order.ts';
+export {
+  insertPluginToken,
+  insertProviderToken,
+  pluginOrderToken,
+} from './plugin/order.ts';
 export type { ConfigField, PluginManifest } from './plugin/types.ts';
 export type { ProviderName } from './provider-name.ts';
 export { providerSchema } from './provider-name.ts';

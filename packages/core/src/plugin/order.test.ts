@@ -8,6 +8,7 @@ import type {
 import type { DiscoveredPlugin } from './discovery.ts';
 import {
   buildResolverList,
+  insertPluginToken,
   insertProviderToken,
   matchesUrl,
   parseOrderToken,
@@ -109,6 +110,25 @@ describe('insertProviderToken', () => {
     expect(
       insertProviderToken(['default:*', 'plugin:alpha'], 'firecrawl'),
     ).toEqual(['default:*', 'default:firecrawl', 'plugin:alpha']);
+  });
+});
+
+describe('insertPluginToken', () => {
+  it('puts a new plugin before the current effective order', () => {
+    expect(insertPluginToken(['default:*', 'default:jina'], 'alpha')).toEqual([
+      'plugin:alpha',
+      'default:*',
+      'default:jina',
+    ]);
+  });
+
+  it('moves an existing plugin token to the front without duplicating it', () => {
+    expect(
+      insertPluginToken(
+        ['default:*', 'plugin:alpha', 'default:jina', 'plugin:alpha'],
+        'alpha',
+      ),
+    ).toEqual(['plugin:alpha', 'default:*', 'default:jina']);
   });
 });
 

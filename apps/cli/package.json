@@ -27,7 +27,8 @@
     "build:binaries": "bun run scripts/build-binaries.ts",
     "prepack": "bun run build",
     "check:tsc": "tsc --noEmit",
-    "check:lint": "biome check ."
+    "check:lint": "biome check .",
+    "test": "bun test"
   },
   "devDependencies": {
     "@effect/platform-bun": "catalog:",
