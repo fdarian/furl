@@ -26,7 +26,7 @@
     "build": "bun build src/main.ts --target=bun --outfile dist/cli.js",
     "build:binaries": "bun run scripts/build-binaries.ts",
     "prepack": "bun run build",
-    "check:tsc": "tsc --noEmit",
+    "check:tsc": "tsrs --noEmit",
     "check:lint": "biome check .",
     "test": "bun test"
   },
@@ -34,6 +34,7 @@
     "@effect/platform-bun": "catalog:",
     "@furl/core": "workspace:*",
     "@repo/config": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "tsrs": "catalog:"
   }
 }

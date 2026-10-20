@@ -7,7 +7,7 @@
     "./plugins": "./src/plugin/index.ts"
   },
   "scripts": {
-    "check:tsc": "tsc --noEmit",
+    "check:tsc": "tsrs --noEmit",
     "check:lint": "biome check .",
     "test": "bun test"
   },
@@ -15,5 +15,8 @@
     "@repo/config": "workspace:*",
     "@effect/platform-bun": "catalog:",
     "effect": "catalog:"
+  },
+  "devDependencies": {
+    "tsrs": "catalog:"
   }
 }
