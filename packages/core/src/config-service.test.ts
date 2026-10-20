@@ -245,4 +245,58 @@ describe('FurlConfigService', () => {
       undefined,
     );
   });
+
+  const readWrittenConfig = (): Record<string, unknown> =>
+    JSON.parse(
+      fs.readFileSync(path.join(tempHome, '.config/furl/config.json'), 'utf8'),
+    );
+
+  it('preserves unknown fields when writing a config read from disk', async () => {
+    writeConfig({
+      order: ['default:*'],
+      futureFlag: { nested: [1, 2] },
+      theme: 'dark',
+    });
+
+    await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        const current = yield* config.read;
+        yield* config.write({ ...current, order: ['default:jina'] });
+      }),
+    );
+
+    expect(readWrittenConfig()).toEqual({
+      order: ['default:jina'],
+      futureFlag: { nested: [1, 2] },
+      theme: 'dark',
+    });
+  });
+
+  it('preserves unknown fields while migrating a legacy provider field', async () => {
+    writeConfig({ provider: 'exa', futureFlag: true });
+
+    await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        yield* config.write(yield* config.read);
+      }),
+    );
+
+    expect(readWrittenConfig()).toEqual({
+      order: ['default:*', 'default:exa'],
+      futureFlag: true,
+    });
+  });
+
+  it('omits order on write when the config has none and no legacy provider', async () => {
+    await runWithConfig(
+      Effect.gen(function* () {
+        const config = yield* FurlConfigService;
+        yield* config.write({ plugins: { alpha: {} } });
+      }),
+    );
+
+    expect(readWrittenConfig()).toEqual({ plugins: { alpha: {} } });
+  });
 });

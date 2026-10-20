@@ -93,6 +93,14 @@ export const insertProviderToken = (
   ];
 };
 
+export const removeProviderToken = (
+  order: readonly string[],
+  provider: ProviderName,
+): string[] => {
+  const token = providerOrderToken(provider);
+  return order.filter((entry) => entry !== token);
+};
+
 const invalidTokenError = (token: string): ConfigError =>
   new ConfigError({
     cause: new Error(

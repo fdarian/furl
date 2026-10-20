@@ -48,9 +48,11 @@ export const rootCommand = Command.make(
         return;
       }
 
-      const configService = yield* FurlConfigService;
-      const configValue = yield* configService.read;
-      yield* warnLegacyProvider(configValue);
+      if (Option.isNone(config.resolvers)) {
+        const configService = yield* FurlConfigService;
+        const configValue = yield* configService.read;
+        yield* warnLegacyProvider(configValue);
+      }
 
       const furl = yield* Furl;
       const result = yield* furl.fetch(config.url.value, {

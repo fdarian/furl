@@ -41,6 +41,8 @@ export { PluginManager } from './plugin/manager.ts';
 export {
   insertProviderToken,
   pluginOrderToken,
+  providerOrderToken,
+  removeProviderToken,
 } from './plugin/order.ts';
 export {
   deleteGenericSecret,

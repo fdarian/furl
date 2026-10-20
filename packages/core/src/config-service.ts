@@ -28,21 +28,27 @@ export type FurlConfig = {
   provider?: ProviderName | undefined;
   order?: readonly string[] | undefined;
   plugins?: Readonly<Record<string, PluginConfigValue>> | undefined;
+  /** Fields this version doesn't know are kept so a write never drops them. */
+  [unknownField: string]: unknown;
 };
 
 const defaultOrder: readonly string[] = ['default:*'];
 
 const normalizeConfig = (config: FurlConfig): FurlConfig => {
-  const order =
-    config.order ??
-    (config.provider === undefined
-      ? defaultOrder
-      : insertProviderToken(defaultOrder, config.provider));
+  const normalized: FurlConfig = { ...config };
+  delete normalized.provider;
 
-  return {
-    order: order,
-    ...(config.plugins === undefined ? {} : { plugins: config.plugins }),
-  };
+  if (config.order !== undefined) {
+    return normalized;
+  }
+
+  if (config.provider === undefined) {
+    delete normalized.order;
+    return normalized;
+  }
+
+  normalized.order = insertProviderToken(defaultOrder, config.provider);
+  return normalized;
 };
 
 export const removePluginConfig = (
@@ -128,9 +134,11 @@ export const FurlConfigServiceLive = Layer.effect(
         catch: (cause) => new ConfigError({ cause: cause }),
       });
 
-      const decoded = yield* decodeConfig(parsedConfig).pipe(
+      const validated = yield* decodeConfig(parsedConfig).pipe(
         Effect.mapError((cause) => new ConfigError({ cause: cause })),
       );
+      // Schema decoding strips unknown fields; merge them back from the raw JSON.
+      const decoded: FurlConfig = { ...parsedConfig, ...validated };
 
       if (decoded.provider === undefined) {
         return decoded;
