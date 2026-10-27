@@ -1,8 +1,11 @@
-# Create your own [Write a resolver for the URLs you care about]
+---
+title: Create your own
+description: Write a resolver for the URLs you care about
+---
 
 A plugin is a folder with a TypeScript entrypoint that default-exports `definePlugin`:
 
-```ts [index.ts]
+```ts index.ts
 import { definePlugin } from 'furl-cli/plugins'
 
 export default definePlugin({
@@ -18,24 +21,31 @@ Then register it in [`order`](/plugins/getting-started) so it runs.
 
 ## The manifest
 
-::::steps
-##### name
+<Steps>
+
+<Step title="name">
 
 > How the plugin is identified everywhere else
 
 This is the id you write in `order` (as `plugin:<name>`) and under `plugins` in `config.json`, and it is also the plugin's folder name under `~/.config/furl/plugins/`. furl refuses to load a folder whose manifest `name` differs from the folder name. It must match `^[a-z0-9][a-z0-9_-]*$`, so it can't be `*` or start with `default:`.
 
-##### match
+</Step>
+
+<Step title="match">
 
 > Which URLs this plugin claims
 
 A declarative hostname plus an optional path pattern. furl reads it to skip the plugin for URLs it doesn't match — without executing any plugin code. Precedence comes from the plugin's position in `order`.
 
-:::details[When the pattern can't express it]
-`match` only decides whether your plugin is a candidate. For URL variants the pattern can't capture, let it match and then decline at runtime inside `resolve`.
-:::
+<Expandable title="When the pattern can't express it">
 
-##### resolve
+`match` only decides whether your plugin is a candidate. For URL variants the pattern can't capture, let it match and then decline at runtime inside `resolve`.
+
+</Expandable>
+
+</Step>
+
+<Step title="resolve">
 
 > Turn the URL into markdown
 
@@ -47,23 +57,29 @@ A declarative hostname plus an optional path pattern. furl reads it to skip the 
 | `null` or `ctx.decline()` | Not mine — silently move to the next resolver |
 | `throw` | Mine, but it failed — the chain continues, and the cause is reported only if every resolver fails |
 
-##### config
+</Step>
+
+<Step title="config">
 
 > Optional: fields for the `furl plugins` form
 
 Each field takes a `key` (letters, digits, `_` and `-`), a `type` (`string`, `secret`, `boolean`, `number`, or `enum`), an optional `label` and `description`, `required`, and `options` for `enum` (a non-empty list of strings). furl rejects a plugin whose `config` doesn't fit this shape.
 
-:::details[furl doesn't validate this]
-The list drives the CLI form, nothing more. A field too complex for a single prompt can be left off the manifest — users hand-edit `config.plugins[<id>]` instead, and furl passes the whole object through untouched. **Validating it is your plugin's job.**
-:::
+<Expandable title="furl doesn't validate this">
 
-::::
+The list drives the CLI form, nothing more. A field too complex for a single prompt can be left off the manifest — users hand-edit `config.plugins[<id>]` instead, and furl passes the whole object through untouched. **Validating it is your plugin's job.**
+
+</Expandable>
+
+</Step>
+
+</Steps>
 
 ## Worked example: X posts
 
 This plugin routes `x.com` posts through either the page's embedded metadata (keyless) or the official X API (needs a key). It declares a `mode` enum defaulting to `metadata`, and a `secret` field used only when `mode` is `api`:
 
-```ts [index.ts]
+```ts index.ts
 import { definePlugin } from 'furl-cli/plugins'
 
 export default definePlugin({
@@ -108,9 +124,10 @@ With `plugins.x` set to `{ "apiKey": "secret:x-api-key", "mode": "api" }`, `ctx.
 
 ### Further reading
 
-:::details[About the `furl-cli/plugins` import]
+<Expandable title="About the `furl-cli/plugins` import">
 
 It's a real subpath export of the `furl-cli` package, and also a Bun virtual module the CLI intercepts at runtime — so a cloned plugin folder resolves it without an `npm install`.
 
 Types currently only work inside this monorepo; the canonical ones live in `@furl/core`, which isn't published yet. `definePlugin` is an identity function, so it still runs fine without them — you just won't get autocomplete.
-:::
+
+</Expandable>

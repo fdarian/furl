@@ -1,4 +1,7 @@
-# exa [Extracted page text]
+---
+title: exa
+description: Extracted page text
+---
 
 Sends the URL to [Exa](https://exa.ai) and returns the extracted body text.
 
@@ -6,7 +9,7 @@ Exa gives you clean prose with the navigation and boilerplate stripped, but it's
 
 ## Enable it
 
-```jsonc [~/.config/furl/config.json]
+```jsonc ~/.config/furl/config.json
 {
   "order": ["default:*", "default:exa"]
 }
@@ -28,7 +31,8 @@ furl providers
 
 ### Further reading
 
-:::details[What furl sends]
+<Expandable title="What furl sends">
 
 `POST https://api.exa.ai/contents` with the key as `x-api-key` and a body of `{ "urls": [url], "text": true }`. The text is read from `results[0].text`.
-:::
+
+</Expandable>

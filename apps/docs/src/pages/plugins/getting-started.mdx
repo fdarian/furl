@@ -1,4 +1,6 @@
-# Getting Started
+---
+title: Getting Started
+---
 
 ## Installing
 
@@ -27,10 +29,9 @@ furl plugins list   # list installed plugin folders and whether each is in `orde
 
 The interactive flow lists the installed plugins that are in `order` and renders a config form from the selected plugin's manifest. furl only runs plugin code for plugins listed in `order`; `furl plugins list` reads folder names without importing anything.
 
-
 ### How it's written in the config
 
-```jsonc [~/.config/furl/config.json]
+```jsonc ~/.config/furl/config.json
 {
   "order": ["plugin:plugin-a", "plugin:some-other-plugin", "default:*"],
   "plugins": {
@@ -56,10 +57,10 @@ Then reference it from the config as `"secret:x-api-key"`.
 
 These secrets are kept apart from the API keys saved by `furl providers`, so a name like `exa` can't read or overwrite a provider key. The name and value can't be empty.
 
-
 ### Further reading
 
-:::details[Plugins can register secrets for you]
+<Expandable title="Plugins can register secrets for you">
 
 A `secret`-typed manifest field configured via `furl plugins` does both writes for you — the value goes to the keychain, and a `{ <key>: "secret:<name>" }` reference goes into `config.json` — so plugin authors and users don't need to run `furl secrets set` and hand-edit config separately.
-:::
+
+</Expandable>

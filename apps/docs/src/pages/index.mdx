@@ -1,4 +1,6 @@
-# furl
+---
+title: furl
+---
 
 furl is a curl replacement for AI agents: it fetches a URL and returns LLM-optimized markdown.
 
@@ -10,8 +12,10 @@ furl is also configurable and [extensible with plugins](/plugins/overview).
 
 ### See it in action
 
-:::code-group
-<div data-title="furl">
+<Tabs>
+
+<Tab title="furl">
+
 ```bash
 furl https://eve.dev/
 ```
@@ -33,8 +37,11 @@ This file helps AI agents understand and use this documentation site.
 - Canonical HTML pages use `/docs/...`, `/integrations/...`, and `/templates/...` URLs.
 ...
 ```
-</div>
-<div data-title="curl">
+
+</Tab>
+
+<Tab title="curl">
+
 ```bash
 curl https://eve.dev/
 ```
@@ -51,8 +58,10 @@ Output:
 				<link rel="preload" as="image" imageSrcSet="/_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=32&amp;q=95 32w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=48&amp;q=95 48w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=64&amp;q=95 64w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=96&amp;q=95 96w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffallback-light-content.08cywqinfyl60.webp&amp;w=128&amp;q=95 128w, /_next/image?url=%2F_next%2Fstatic%2Fimmutable%2Fmedia%2Ffal
 ...
 ```
-</div>
-:::
+
+</Tab>
+
+</Tabs>
 
 ## Getting started
 
@@ -62,23 +71,25 @@ Output:
 brew install fdarian/tap/furl
 ```
 
-::::details[Also available via npm]
+<Expandable title="Also available via npm">
 
-:::code-group
+<CodeGroup>
 
-```bash [npm]
+```bash npm
 npx furl-cli [url]
 ```
 
-```bash [pnpm]
+```bash pnpm
 pnpx furl-cli [url]
 ```
 
-```bash [bun]
+```bash bun
 bunx furl-cli [url]
 ```
-:::
-::::
+
+</CodeGroup>
+
+</Expandable>
 
 ### First fetch
 
@@ -88,8 +99,10 @@ furl https://mintlify.com
 furl https://github.com/fdarian/nisi
 ```
 
-:::code-group
-<div data-title='Direct'>
+<Tabs>
+
+<Tab title="Direct">
+
 ```bash
 furl https://mintlify.com
 ```
@@ -107,9 +120,11 @@ URL: https://www.mintlify.com
 ```
 
 > Mintlify honors `Accept: text/markdown`, so it served markdown directly.
-</div>
 
-<div data-title='Firecrawl (with parsing)'>
+</Tab>
+
+<Tab title="Firecrawl (with parsing)">
+
 ```bash
 furl https://github.com/fdarian/nisi
 ```
@@ -132,7 +147,8 @@ Output:
 
 > A GitHub repo page doesn't serve markdown, so firecrawl handled the parsing.
 
-> :badge[Tip] You can [write your own plugin](/plugins/overview) to intercept `github.com/<org>/<repo>`, route it through the GitHub API, and format the result the way you prefer.
-</div>
-:::
+> <Badge variant="accent">Tip</Badge> You can [write your own plugin](/plugins/overview) to intercept `github.com/<org>/<repo>`, route it through the GitHub API, and format the result the way you prefer.
 
+</Tab>
+
+</Tabs>

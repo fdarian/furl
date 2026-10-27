@@ -1,4 +1,7 @@
-# firecrawl [Structured markdown scraping]
+---
+title: firecrawl
+description: Structured markdown scraping
+---
 
 Sends the URL to [Firecrawl](https://firecrawl.dev), which scrapes the page and returns real markdown.
 
@@ -6,7 +9,7 @@ Headings, links, and lists come through intact, so it's the one to pick when the
 
 ## Enable it
 
-```jsonc [~/.config/furl/config.json]
+```jsonc ~/.config/furl/config.json
 {
   "order": ["default:*", "default:firecrawl"]
 }
@@ -28,7 +31,8 @@ furl providers
 
 ### Further reading
 
-:::details[What furl sends]
+<Expandable title="What furl sends">
 
 `POST https://api.firecrawl.dev/v1/scrape` with `Authorization: Bearer <key>` and a body of `{ "url": url, "formats": ["markdown"] }`. The markdown is read from `data.markdown`.
-:::
+
+</Expandable>

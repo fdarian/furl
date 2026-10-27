@@ -1,4 +1,7 @@
-# Fetch strategy [Learn how furl resolves markdown from a URL]
+---
+title: Fetch strategy
+description: Learn how furl resolves markdown from a URL
+---
 
 ## Behavior
 
@@ -6,34 +9,43 @@ furl comes with a predefined chain of resolvers that probes what a website suppo
 
 The default chain has three resolvers. They're tried in order, and the first one that succeeds wins.
 
-::::steps
-##### default:raw
+<Steps>
+
+<Step title="default:raw">
 
 > Fetch `../file.ext` as-is
 
 If the URL pathname ends with a file extension (`.md`, `.txt`, `.json`, etc.), furl fetches the file as-is, just like a regular curl.
 
-:::details[HTML responses are skipped]
-It matches on any file extension, not on file type. If the server answers with `text/html` (for example `/wiki/Node.js`), `raw` steps aside and the next resolver runs instead of returning markup.
-:::
+<Expandable title="HTML responses are skipped">
 
-##### default:direct
+It matches on any file extension, not on file type. If the server answers with `text/html` (for example `/wiki/Node.js`), `raw` steps aside and the next resolver runs instead of returning markup.
+
+</Expandable>
+
+</Step>
+
+<Step title="default:direct">
 
 > Try the `Accept: text/markdown` header
 
 For non-file URLs, furl sends a `GET` with `Accept: text/markdown`. If the response `content-type` contains `markdown`, it returns the body.
 
-##### default:md-suffix
+</Step>
+
+<Step title="default:md-suffix">
 
 > Try appending `.md`
 
 If the direct fetch doesn't return markdown, furl retries the same URL with `.md` appended before any query string.
 
-::::
+</Step>
+
+</Steps>
 
 ### Further reading
 
-:::details[Knowing what was used]
+<Expandable title="Knowing what was used">
 
 furl logs the order token of the resolver that produced the result (`↳ via default:md-suffix`, `↳ via plugin:x`) at the end of the output:
 ```
@@ -52,21 +64,23 @@ That line goes to stderr, so it never ends up in a file or a pipe:
 ❯ cat design.md
 [clean output]
 ```
-:::
 
-:::details[Configuring the order]
+</Expandable>
+
+<Expandable title="Configuring the order">
 
 Every resolver can be customized: reorder them, remove them, or add your own through [plugins](/plugins/overview).
 
 Here's the default:
-```json [~/.config/furl/config.json]
+```json ~/.config/furl/config.json
 {
   "order": ["default:*"]
 }
 ```
 
 `default:*` expands to the three probes above, in that order. Or you can specify them individually (e.g. `default:raw` and `default:md-suffix`)
-:::
+
+</Expandable>
 
 ## Additional resolvers
 
@@ -78,7 +92,7 @@ You can fall back to a third-party provider to handle the `url → markdown` par
 
 Configure it with:
 
-```jsonc [~/.config/furl/config.json]
+```jsonc ~/.config/furl/config.json
 {
   "order": [
     "default:*",
