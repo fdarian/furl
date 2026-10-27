@@ -3,25 +3,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vocs dev",
-    "build": "vocs build",
-    "preview": "vocs preview",
+    "dev": "blume dev",
+    "build": "blume build",
+    "preview": "blume preview",
     "check:tsc": "tsrs --noEmit",
-    "check:lint": "biome check AGENTS.md package.json tsconfig.json vocs.config.ts src/jsx.d.ts src/pages"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "vocs": "2.0.13",
-    "waku": "1.0.0-beta.0"
+    "check:lint": "biome check AGENTS.md package.json tsconfig.json blume.config.ts components.ts src/pages"
   },
   "devDependencies": {
+    "@fdarian/blume-preset": "github:fdarian/blume-preset#v0.1.0",
     "@types/node": "^24.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "blume": "^2.2.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "tsrs": "catalog:",
-    "typescript": "catalog:",
-    "vite": "^8.0.0"
+    "typescript": "catalog:"
   }
 }

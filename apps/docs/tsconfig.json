@@ -1,17 +1,12 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["react", "react-dom"]
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
-  "include": ["src", "vocs.config.ts"]
+  "include": ["blume.config.ts", "components.ts"]
 }

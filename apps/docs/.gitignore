@@ -1,1 +1,3 @@
-pages.gen.ts
+.blume/
+.blume-verify/
+dist/
