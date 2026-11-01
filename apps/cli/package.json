@@ -19,15 +19,13 @@
     "README.md"
   ],
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "bun build src/main.ts --target=bun --outfile dist/cli.js",
     "build:binaries": "bun run scripts/build-binaries.ts",
-    "prepack": "bun run build",
-    "check:tsc": "tsrs --noEmit",
-    "check:lint": "biome check .",
+    "check:type": "tsrs --noEmit",
+    "check:lint": "biome lint .",
     "test": "bun test"
   },
   "devDependencies": {

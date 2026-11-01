@@ -8,7 +8,7 @@
     "test": "turbo run test",
     "format": "biome check --write",
     "ci:version": "changeset version",
-    "ci:release": "changeset publish"
+    "ci:release": "pnpm --filter furl-lib build && pnpm --filter furl-cli build && changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.0.6",

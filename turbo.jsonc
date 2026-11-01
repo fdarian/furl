@@ -1,10 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "check:tsc": {},
+    "check:type": {},
     "check:lint": {},
     "check": {
-      "dependsOn": ["check:tsc", "check:lint"]
+      "dependsOn": ["check:type", "check:lint", "test"]
     },
     "test": {}
   }

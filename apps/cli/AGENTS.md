@@ -8,6 +8,7 @@
   - `furl secrets set <name>` stores a keychain secret that plugin config references as `"secret:<name>"`
 - Dev command:
   - `bun run src/main.ts <url>`
+- Build: `bun build --target=bun` into `dist/cli.js` with a Bun shebang, because the CLI uses Bun-only APIs (`@effect/platform-bun`, `Bun.secrets` for the keychain); it is not a Node bundle. `build:binaries` compiles the release tarballs.
 - Builds the resolver list and hands it to `furl-lib` (`Furl.fetch(url, { resolvers })`): `default:*` tokens expand to the `furl-lib` built-ins under ids like `default:raw`, plugins become `plugin:<name>`, and provider keys come from env first, then the keychain.
 - Key files:
   - `src/main.ts` (layers: Bun services, config, secrets, plugins and `FetchHttpClient.layer`, which `Furl.fetch` requires)
