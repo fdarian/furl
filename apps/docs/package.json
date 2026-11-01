@@ -10,7 +10,7 @@
     "check:lint": "biome check AGENTS.md package.json tsconfig.json blume.config.ts components.ts src/pages"
   },
   "devDependencies": {
-    "@fdarian/blume-preset": "github:fdarian/blume-preset#v0.1.0",
+    "@fdarian/blume-preset": "github:fdarian/blume-preset#330cf35888e622298be6267e7f46565c6882e607",
     "@types/node": "^24.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

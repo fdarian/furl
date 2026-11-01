@@ -215,8 +215,8 @@ importers:
   apps/docs:
     devDependencies:
       '@fdarian/blume-preset':
-        specifier: github:fdarian/blume-preset#v0.1.0
-        version: https://codeload.github.com/fdarian/blume-preset/tar.gz/25c0c484b59e2f4fc4d1a5822a52572a2cb573df(@types/react@19.3.0)(blume@2.2.6(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.10.3(ws@8.22.0))(csstype@3.2.3)(prettier@3.9.10)(vite@8.3.5(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1))(ws@8.22.0)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: github:fdarian/blume-preset#330cf35888e622298be6267e7f46565c6882e607
+        version: https://codeload.github.com/fdarian/blume-preset/tar.gz/330cf35888e622298be6267e7f46565c6882e607(@types/react@19.3.0)(blume@2.2.6(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.10.3(ws@8.22.0))(csstype@3.2.3)(prettier@3.9.10)(vite@8.3.5(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1))(ws@8.22.0)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.4
@@ -717,8 +717,8 @@ packages:
   '@emnapi/wasi-threads@1.2.3':
     resolution: {integrity: sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==}
 
-  '@fdarian/blume-preset@https://codeload.github.com/fdarian/blume-preset/tar.gz/25c0c484b59e2f4fc4d1a5822a52572a2cb573df':
-    resolution: {gitHosted: true, integrity: sha512-ZRniHD0EiXKWWTmeI5ErIxMxR8qSh/ZZwmFaSPI5V3fTHPvThA7l3XIHmzPP4ugn8dsa+JEPYE9gSSE8xfDf3A==, tarball: https://codeload.github.com/fdarian/blume-preset/tar.gz/25c0c484b59e2f4fc4d1a5822a52572a2cb573df}
+  '@fdarian/blume-preset@https://codeload.github.com/fdarian/blume-preset/tar.gz/330cf35888e622298be6267e7f46565c6882e607':
+    resolution: {gitHosted: true, integrity: sha512-UPocmAFJEVP9g1ocrYRRZJPmzVW43nuW0OyBnAypTVcc/zCsCcDRCwj7bhm8VWVsXDvXiHJD+n5gQ8S5X8S7cA==, tarball: https://codeload.github.com/fdarian/blume-preset/tar.gz/330cf35888e622298be6267e7f46565c6882e607}
     version: 0.1.0
     peerDependencies:
       blume: ^2.1.0
@@ -5301,7 +5301,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@fdarian/blume-preset@https://codeload.github.com/fdarian/blume-preset/tar.gz/25c0c484b59e2f4fc4d1a5822a52572a2cb573df(@types/react@19.3.0)(blume@2.2.6(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.10.3(ws@8.22.0))(csstype@3.2.3)(prettier@3.9.10)(vite@8.3.5(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1))(ws@8.22.0)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@fdarian/blume-preset@https://codeload.github.com/fdarian/blume-preset/tar.gz/330cf35888e622298be6267e7f46565c6882e607(@types/react@19.3.0)(blume@2.2.6(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.10.3(ws@8.22.0))(csstype@3.2.3)(prettier@3.9.10)(vite@8.3.5(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1))(ws@8.22.0)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@base-ui/react': 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       blume: 2.2.6(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.10.3(ws@8.22.0))(csstype@3.2.3)(prettier@3.9.10)(vite@8.3.5(@types/node@24.13.4)(jiti@2.7.0)(yaml@2.9.1))(ws@8.22.0)(yaml@2.9.1)
