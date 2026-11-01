@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import { Effect, Layer } from 'effect';
-import { FetchHttpClient, HttpClient } from 'effect/http';
+import { Effect } from 'effect';
+import { HttpClient } from 'effect/http';
 
 import { ConfigError } from './errors.ts';
 import { Furl } from './furl.ts';
@@ -14,162 +14,56 @@ const succeedWith = (id: string, markdown: string) =>
     run: () => Effect.succeed(new ResolveSuccess({ markdown: markdown })),
   });
 
-const makeLayer = (options?: Parameters<typeof Furl.layer>[0]) =>
-  Furl.layer(options).pipe(
-    Layer.provide(
-      Layer.succeed(
-        HttpClient.HttpClient,
-        makeHttpClientStub(() => new Response('# hi', { status: 200 })),
-      ),
-    ),
-  );
-
-const stubFetch = (body: string): typeof globalThis.fetch =>
-  Object.assign(async () => new Response(body, { status: 200 }), {
-    preconnect: () => {},
-  });
-
-const withGlobalFetch = <A, E>(body: string, effect: Effect.Effect<A, E>) =>
-  Effect.provideService(effect, FetchHttpClient.Fetch, stubFetch(body));
-
-describe('Furl without a layer', () => {
-  it('fetches through Resolvers.defaults and the global fetch client', async () => {
-    const result = await Effect.runPromise(
-      withGlobalFetch('# global', Furl.fetch('https://example.com/file.md')),
+const withClient =
+  (body: string) =>
+  <A, E>(effect: Effect.Effect<A, E, HttpClient.HttpClient>) =>
+    Effect.provideService(
+      effect,
+      HttpClient.HttpClient,
+      makeHttpClientStub(() => new Response(body, { status: 200 })),
     );
 
-    expect(result).toEqual({ markdown: '# global', source: 'raw' });
-  });
-
-  it('resolves the service with yield*', async () => {
+describe('Furl.fetch', () => {
+  it('runs Resolvers.defaults with no layer, through the caller client', async () => {
     const result = await Effect.runPromise(
-      withGlobalFetch(
-        '# global',
-        Effect.gen(function* () {
-          const furl = yield* Furl;
-          return yield* furl.fetch('https://example.com/file.md');
-        }),
-      ),
-    );
-
-    expect(result.source).toBe('raw');
-  });
-
-  it('honours the per-call resolvers', async () => {
-    const result = await Effect.runPromise(
-      Furl.fetch('https://example.com/page', {
-        resolvers: [succeedWith('call', '# call')],
-      }),
-    );
-
-    expect(result).toEqual({ markdown: '# call', source: 'call' });
-  });
-});
-
-describe('Furl.layer', () => {
-  it('works alone with just resolvers', async () => {
-    const result = await Effect.runPromise(
-      Furl.fetch('https://example.com/page').pipe(
-        Effect.provide(
-          Furl.layer({ resolvers: [succeedWith('custom', '# custom')] }),
-        ),
-      ),
-    );
-
-    expect(result).toEqual({ markdown: '# custom', source: 'custom' });
-  });
-
-  it('falls back to the global fetch client when none is provided', async () => {
-    const result = await Effect.runPromise(
-      withGlobalFetch(
-        '# global',
-        Furl.fetch('https://example.com/file.md').pipe(
-          Effect.provide(Furl.layer()),
-        ),
-      ),
-    );
-
-    expect(result).toEqual({ markdown: '# global', source: 'raw' });
-  });
-
-  it('uses the HttpClient provided while building the layer', async () => {
-    const result = await Effect.runPromise(
-      withGlobalFetch(
-        '# not used',
-        Furl.fetch('https://example.com/file.md').pipe(
-          Effect.provide(makeLayer()),
-        ),
-      ),
+      Furl.fetch('https://example.com/file.md').pipe(withClient('# hi')),
     );
 
     expect(result).toEqual({ markdown: '# hi', source: 'raw' });
   });
-});
 
-describe('Furl', () => {
-  it('uses Resolvers.defaults when the layer has no resolvers', async () => {
+  it('uses the HttpClient provided at call time, not an earlier one', async () => {
+    const program = Furl.fetch('https://example.com/file.md');
+
+    const first = await Effect.runPromise(program.pipe(withClient('# one')));
+    const second = await Effect.runPromise(program.pipe(withClient('# two')));
+
+    expect(first.markdown).toBe('# one');
+    expect(second.markdown).toBe('# two');
+  });
+
+  it('uses the caller client even when a layer sets the resolvers', async () => {
     const result = await Effect.runPromise(
       Furl.fetch('https://example.com/file.md').pipe(
-        Effect.provide(makeLayer()),
+        Effect.provide(Furl.layer({ resolvers: [Resolvers.raw] })),
+        withClient('# caller'),
       ),
     );
 
-    expect(result).toEqual({ markdown: '# hi', source: 'raw' });
+    expect(result).toEqual({ markdown: '# caller', source: 'raw' });
   });
 
-  it('runs the layer resolvers in order and reports the winning id', async () => {
-    const layer = makeLayer({
-      resolvers: [
-        succeedWith('first', '# first'),
-        succeedWith('second', '# 2'),
-      ],
-    });
+  it('does not compile without an HttpClient', () => {
+    const run = () =>
+      // @ts-expect-error Furl.fetch requires HttpClient.HttpClient
+      Effect.runPromise(Furl.fetch('https://example.com/file.md'));
 
-    const result = await Effect.runPromise(
-      Furl.fetch('https://example.com/page').pipe(Effect.provide(layer)),
-    );
-
-    expect(result).toEqual({ markdown: '# first', source: 'first' });
-  });
-
-  it('replaces the layer resolvers with the per-call list', async () => {
-    const layer = makeLayer({ resolvers: [succeedWith('layer', '# layer')] });
-
-    const result = await Effect.runPromise(
-      Furl.fetch('https://example.com/page', {
-        resolvers: [succeedWith('call', '# call')],
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result).toEqual({ markdown: '# call', source: 'call' });
-  });
-
-  it('is the same as calling fetch on the service instance', async () => {
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const furl = yield* Furl;
-        return yield* furl.fetch('https://example.com/file.md');
-      }).pipe(Effect.provide(makeLayer({ resolvers: [Resolvers.raw] }))),
-    );
-
-    expect(result.source).toBe('raw');
-  });
-
-  it('fails with AllResolversFailed for an empty resolver list', async () => {
-    const error = await Effect.runPromise(
-      Effect.flip(
-        Furl.fetch('https://example.com/page', { resolvers: [] }).pipe(
-          Effect.provide(makeLayer()),
-        ),
-      ),
-    );
-
-    expect(error._tag).toBe('AllResolversFailed');
+    expect(run).toBeInstanceOf(Function);
   });
 
   it('fails with FetchError for an invalid URL', async () => {
     const error = await Effect.runPromise(
-      Effect.flip(Furl.fetch('not a url').pipe(Effect.provide(makeLayer()))),
+      Effect.flip(Furl.fetch('not a url').pipe(withClient('# hi'))),
     );
 
     expect(error._tag).toBe('FetchError');
@@ -185,10 +79,76 @@ describe('Furl', () => {
       Effect.flip(
         Furl.fetch('https://example.com/page', {
           resolvers: [aborting, succeedWith('later', '# later')],
-        }).pipe(Effect.provide(makeLayer())),
+        }).pipe(withClient('# hi')),
       ),
     );
 
     expect(error._tag).toBe('ConfigError');
+  });
+});
+
+describe('Furl resolvers', () => {
+  it('defaults to Resolvers.defaults', async () => {
+    const resolvers = await Effect.runPromise(Furl);
+
+    expect(resolvers).toBe(Resolvers.defaults);
+  });
+
+  it('is set by the layer, which requires nothing', async () => {
+    const list = [
+      succeedWith('first', '# first'),
+      succeedWith('second', '# 2'),
+    ];
+
+    const result = await Effect.runPromise(
+      Furl.fetch('https://example.com/page').pipe(
+        Effect.provide(Furl.layer({ resolvers: list })),
+        withClient('# unused'),
+      ),
+    );
+
+    expect(result).toEqual({ markdown: '# first', source: 'first' });
+  });
+
+  it('falls back to Resolvers.defaults for a layer without resolvers', async () => {
+    const resolvers = await Effect.runPromise(
+      Furl.pipe(Effect.provide(Furl.layer())),
+    );
+
+    expect(resolvers).toBe(Resolvers.defaults);
+  });
+
+  it('is replaced by the per-call list', async () => {
+    const layer = Furl.layer({ resolvers: [succeedWith('layer', '# layer')] });
+
+    const result = await Effect.runPromise(
+      Furl.fetch('https://example.com/page', {
+        resolvers: [succeedWith('call', '# call')],
+      }).pipe(Effect.provide(layer), withClient('# unused')),
+    );
+
+    expect(result).toEqual({ markdown: '# call', source: 'call' });
+  });
+
+  it('is replaced by the per-call list when there is no layer', async () => {
+    const result = await Effect.runPromise(
+      Furl.fetch('https://example.com/page', {
+        resolvers: [succeedWith('call', '# call')],
+      }).pipe(withClient('# unused')),
+    );
+
+    expect(result).toEqual({ markdown: '# call', source: 'call' });
+  });
+
+  it('fails with AllResolversFailed for an empty list', async () => {
+    const error = await Effect.runPromise(
+      Effect.flip(
+        Furl.fetch('https://example.com/page', { resolvers: [] }).pipe(
+          withClient('# unused'),
+        ),
+      ),
+    );
+
+    expect(error._tag).toBe('AllResolversFailed');
   });
 });

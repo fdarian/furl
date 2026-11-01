@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Option } from 'effect';
-import { FetchHttpClient, HttpClient } from 'effect/http';
+import { Context, Effect, Layer } from 'effect';
+import type { HttpClient } from 'effect/http';
 
 import { runResolvers } from './engine.ts';
 import type { AllResolversFailed, ConfigError } from './errors.ts';
@@ -14,7 +14,7 @@ export type FetchResult = {
 };
 
 export type FetchOptions = {
-  /** Replaces the service's resolvers for this call. */
+  /** Replaces the layer's resolvers for this call. */
   resolvers?: readonly Resolver[];
 };
 
@@ -25,69 +25,26 @@ type LayerOptions = {
   resolvers?: readonly Resolver[];
 };
 
-type FurlService = {
-  fetch: (
+/** Holds the resolver list `Furl.fetch` runs; it works without a layer. */
+export class Furl extends Context.Reference<readonly Resolver[]>('furl/core', {
+  defaultValue: () => Resolvers.defaults,
+}) {
+  static readonly layer = (options: LayerOptions = {}): Layer.Layer<never> =>
+    Layer.succeed(Furl, options.resolvers ?? Resolvers.defaults);
+
+  /** Requests go through the `HttpClient` in the caller's context. */
+  static readonly fetch = (
     url: string,
     options?: FetchOptions,
-  ) => Effect.Effect<FetchResult, FurlError>;
-};
-
-type ProvideClient = <A, E>(
-  effect: Effect.Effect<A, E, HttpClient.HttpClient>,
-) => Effect.Effect<A, E>;
-
-const provideGlobalFetchClient: ProvideClient = (effect) =>
-  Effect.provide(effect, FetchHttpClient.layer);
-
-const makeService = (
-  defaultResolvers: readonly Resolver[],
-  provideClient: ProvideClient,
-): FurlService => ({
-  fetch: (url, options) =>
+  ): Effect.Effect<FetchResult, FurlError, HttpClient.HttpClient> =>
     Effect.gen(function* () {
       const parsedUrl = yield* Effect.try({
         try: () => new URL(url),
         catch: (cause) =>
           new FetchError({ url: url, status: undefined, cause: cause }),
       });
+      const resolvers = options?.resolvers ?? (yield* Furl);
 
-      return yield* provideClient(
-        runResolvers(parsedUrl, options?.resolvers ?? defaultResolvers),
-      );
-    }),
-});
-
-/**
- * Works without a layer: the default value runs `Resolvers.defaults` over the
- * global `fetch`. Provide `Furl.layer` only to change that.
- */
-export class Furl extends Context.Reference<FurlService>('furl/core', {
-  defaultValue: () => makeService(Resolvers.defaults, provideGlobalFetchClient),
-}) {
-  static readonly layer = (options: LayerOptions = {}): Layer.Layer<never> =>
-    Layer.effect(
-      Furl,
-      Effect.gen(function* () {
-        const client = yield* Effect.serviceOption(HttpClient.HttpClient);
-        const provideClient: ProvideClient = Option.match(client, {
-          onNone: () => provideGlobalFetchClient,
-          onSome: (httpClient) => (effect) =>
-            Effect.provideService(effect, HttpClient.HttpClient, httpClient),
-        });
-
-        return makeService(
-          options.resolvers ?? Resolvers.defaults,
-          provideClient,
-        );
-      }),
-    );
-
-  static readonly fetch = (
-    url: string,
-    options?: FetchOptions,
-  ): Effect.Effect<FetchResult, FurlError> =>
-    Effect.gen(function* () {
-      const furl = yield* Furl;
-      return yield* furl.fetch(url, options);
+      return yield* runResolvers(parsedUrl, resolvers);
     });
 }
