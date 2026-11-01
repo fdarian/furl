@@ -1,7 +1,7 @@
 # @furl/core
 
 - Purpose: Fetch-to-markdown engine and provider integrations for `furl`.
-- Stack: Effect v4 beta, `effect/unstable/http`, Bun keychain + filesystem services.
+- Stack: Effect v4 beta, `effect/http`, Bun keychain + filesystem services.
 - Key files:
   - `src/fetch-markdown.ts`
   - `src/config-service.ts`

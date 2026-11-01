@@ -1,5 +1,5 @@
 import { type Context, Effect, Schema } from 'effect';
-import { type HttpClient, HttpClientRequest } from 'effect/unstable/http';
+import { type HttpClient, HttpClientRequest } from 'effect/http';
 
 import { FetchError, ProviderError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';

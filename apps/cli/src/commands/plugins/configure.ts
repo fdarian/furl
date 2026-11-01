@@ -16,7 +16,7 @@ import {
 } from '@furl/core';
 import type { Terminal } from 'effect';
 import { Console, Effect, Option, Redacted } from 'effect';
-import { Prompt } from 'effect/unstable/cli';
+import { Prompt } from 'effect/cli';
 import {
   enumChoices,
   fieldMessage,

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect';
-import { HttpClient } from 'effect/unstable/http';
+import { HttpClient } from 'effect/http';
 
 import type { FurlConfigServiceShape } from './config-service.ts';
 import { FurlConfigService, FurlConfigServiceLive } from './config-service.ts';

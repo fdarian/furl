@@ -7,7 +7,7 @@ import {
   Secrets,
 } from '@furl/core';
 import { Console, Effect, Option, Redacted } from 'effect';
-import { Command, Prompt } from 'effect/unstable/cli';
+import { Command, Prompt } from 'effect/cli';
 
 export const warnLegacyProvider = (config: FurlConfig) => {
   if (config.provider === undefined) {

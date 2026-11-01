@@ -1,9 +1,5 @@
 import { Effect } from 'effect';
-import {
-  HttpClient,
-  HttpClientError,
-  HttpClientResponse,
-} from 'effect/unstable/http';
+import { HttpClient, HttpClientError, HttpClientResponse } from 'effect/http';
 
 import type { Resolver } from './resolver.ts';
 import { ResolveDecline, type ResolveOutcome } from './types.ts';

@@ -1,6 +1,6 @@
 import type { ConfigField } from '@furl/core';
 import { Effect, Option } from 'effect';
-import type { Prompt } from 'effect/unstable/cli';
+import type { Prompt } from 'effect/cli';
 
 // effect's prompts crash on an explicit `default: undefined` / `validate: undefined`,
 // so these builders add those keys only when they have a value.

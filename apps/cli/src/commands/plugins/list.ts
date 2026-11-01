@@ -5,7 +5,7 @@ import {
   pluginOrderToken,
 } from '@furl/core';
 import { Console, Effect } from 'effect';
-import { Command } from 'effect/unstable/cli';
+import { Command } from 'effect/cli';
 
 export const formatPluginLine = (
   name: string,

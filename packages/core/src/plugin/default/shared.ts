@@ -1,5 +1,5 @@
 import { type Context, Effect, Option } from 'effect';
-import { type HttpClient, HttpClientRequest } from 'effect/unstable/http';
+import { type HttpClient, HttpClientRequest } from 'effect/http';
 
 import { FetchError } from '../../errors.ts';
 

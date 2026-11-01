@@ -10,7 +10,7 @@ Bun only: the package ships TypeScript source and uses `Bun.secrets` (Bun 1.2.21
 bun add @furl/core effect @effect/platform-bun
 ```
 
-`effect` is a peer dependency, so your app and `@furl/core` share one Effect runtime. Install the same version for `effect` and `@effect/platform-bun`.
+`effect` is a peer dependency, so your app and `@furl/core` share one Effect runtime. `@effect/platform-bun` must match your `effect` version.
 
 ## Usage
 
@@ -18,7 +18,7 @@ bun add @furl/core effect @effect/platform-bun
 import { BunServices } from '@effect/platform-bun';
 import { Furl, FurlLive } from '@furl/core';
 import { Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 
 const layer = FurlLive.pipe(
   Layer.provide(Layer.mergeAll(BunServices.layer, FetchHttpClient.layer)),
