@@ -46,7 +46,6 @@ export default defineConfig(
         {
           label: 'Library',
           root: '/library',
-          directory: 'card',
           items: [
             { label: 'Getting started', href: '/library/getting-started' },
             { label: 'Resolvers', href: '/library/resolvers' },
