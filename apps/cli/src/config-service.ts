@@ -1,6 +1,6 @@
 import { Context, Effect, FileSystem, Layer, Option, Schema } from 'effect';
-import type { ProviderName } from 'furl-lib';
-import { ConfigError, providerNames, providerSchema } from 'furl-lib';
+import type { ProviderName } from 'furl-core';
+import { ConfigError, providerNames, providerSchema } from 'furl-core';
 
 import {
   insertProviderToken,

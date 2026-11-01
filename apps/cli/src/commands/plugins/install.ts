@@ -1,6 +1,6 @@
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag, Prompt } from 'effect/cli';
-import { redactUrlUserInfo } from 'furl-lib';
+import { redactUrlUserInfo } from 'furl-core';
 import { PluginInstallError } from '../../errors';
 import type { InstallPreview } from '../../plugin/manager';
 import { PluginManager } from '../../plugin/manager';

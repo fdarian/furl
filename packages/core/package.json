@@ -1,5 +1,5 @@
 {
-  "name": "furl-lib",
+  "name": "furl-core",
   "version": "0.0.0",
   "description": "Fetch any URL as markdown with a pluggable resolver chain. Runs on Node, Bun and other runtimes.",
   "license": "Apache-2.0",

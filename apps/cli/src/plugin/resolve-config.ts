@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { ConfigError } from 'furl-lib';
+import { ConfigError } from 'furl-core';
 
 import type { KeychainError } from '../errors.ts';
 import { InvalidSecretError } from '../errors.ts';

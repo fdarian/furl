@@ -8,8 +8,8 @@ import {
   Option,
   Schema,
 } from 'effect';
-import type { ConfigError } from 'furl-lib';
-import { describeCause, redactUrlUserInfo } from 'furl-lib';
+import type { ConfigError } from 'furl-core';
+import { describeCause, redactUrlUserInfo } from 'furl-core';
 import type { FurlConfig, FurlConfigServiceShape } from '../config-service.ts';
 import {
   FurlConfigService,

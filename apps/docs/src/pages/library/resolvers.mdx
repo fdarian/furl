@@ -5,7 +5,7 @@ description: Choose which resolvers a fetch runs, supply provider keys, and writ
 
 A fetch runs an ordered list of resolvers and returns the first success. A resolver that doesn't apply to the URL declines and the next one runs. A resolver that fails is recorded and the next one runs too; the failures only reach you if every resolver gives up, as [`AllResolversFailed`](/library/errors).
 
-`furl-lib` reads no config file, keychain or plugin folder. The list you give it is the list that runs. Reading `order` from `~/.config/furl/config.json` ([Fetch strategy](/fetch-strategy)), keys saved in the keychain by `furl providers` ([exa](/plugins/builtins/exa)), and installed [plugins](/plugins/overview) are CLI features.
+`furl-core` reads no config file, keychain or plugin folder. The list you give it is the list that runs. Reading `order` from `~/.config/furl/config.json` ([Fetch strategy](/fetch-strategy)), keys saved in the keychain by `furl providers` ([exa](/plugins/builtins/exa)), and installed [plugins](/plugins/overview) are CLI features.
 
 ## The built-in resolvers
 
@@ -31,7 +31,7 @@ The next sections use it to add a provider and a resolver of your own.
 `Resolvers.jina`, `Resolvers.exa` and `Resolvers.firecrawl` call a third-party API to parse pages that don't serve markdown. They are factories, and none is in `Resolvers.defaults`: a provider only gets your URLs if you list it.
 
 ```ts
-import { Furl, Resolvers } from 'furl-lib';
+import { Furl, Resolvers } from 'furl-core';
 import { Effect } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
@@ -68,7 +68,7 @@ Each factory takes an optional `apiKey`:
 When `apiKey` is omitted, the resolver reads its environment variable through Effect's `Config`. Pass `apiKey` to take the key from somewhere else. It is either a string, or an Effect that succeeds with an `Option<string>`:
 
 ```ts
-import { Resolvers } from 'furl-lib';
+import { Resolvers } from 'furl-core';
 import { Effect, Option } from 'effect';
 
 const fromLiteral = Resolvers.exa({ apiKey: 'my-exa-key' });
@@ -98,7 +98,7 @@ import {
   ResolveDecline,
   ResolverError,
   ResolveSuccess,
-} from 'furl-lib';
+} from 'furl-core';
 import { Effect } from 'effect';
 import { HttpClient } from 'effect/http';
 
@@ -132,7 +132,7 @@ export const githubReadme: Resolver = {
 Put it in the list like any other resolver. Because it comes first, it sees GitHub URLs before the free probes do:
 
 ```ts
-import { Furl, Resolvers } from 'furl-lib';
+import { Furl, Resolvers } from 'furl-core';
 import { Effect } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 

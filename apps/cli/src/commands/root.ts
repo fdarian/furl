@@ -1,6 +1,6 @@
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
-import { Furl } from 'furl-lib';
+import { Furl } from 'furl-core';
 import { FurlConfigService } from '../config-service';
 import { PluginDiscovery } from '../plugin/discovery';
 import { loadResolvers } from '../plugin/load-resolvers';

@@ -1,6 +1,6 @@
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/cli';
-import type { ProviderName } from 'furl-lib';
+import type { ProviderName } from 'furl-core';
 import type { FurlConfig } from '../config-service';
 import { FurlConfigService } from '../config-service';
 import {

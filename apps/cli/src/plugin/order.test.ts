@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect, Option } from 'effect';
-import type { Resolver } from 'furl-lib';
+import type { Resolver } from 'furl-core';
 import {
   ConfigError,
   describeCause,
   ResolveDecline,
   ResolverError,
   ResolveSuccess,
-} from 'furl-lib';
+} from 'furl-core';
 
 import type {
   FurlConfigServiceShape,

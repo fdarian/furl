@@ -1,6 +1,6 @@
-# furl-lib
+# furl-core
 
-- Purpose: runtime-agnostic fetch-to-markdown engine, published as `furl-lib`. It reads no files, keychain or config and uses no Bun API: callers pass resolver objects in. Config, order tokens (`default:*`), plugins and secrets belong to `apps/cli`.
+- Purpose: runtime-agnostic fetch-to-markdown engine, published as `furl-core`. It reads no files, keychain or config and uses no Bun API: callers pass resolver objects in. Config, order tokens (`default:*`), plugins and secrets belong to `apps/cli`.
 - Stack: Effect v4, `effect/http`. `Furl.fetch` requires `HttpClient` and reads it from the caller's context on every call, so the consumer's client (tracing, retries, proxy) applies; core never imports `FetchHttpClient`. `Furl` is a `Context.Reference` holding only the resolver list (default `Resolvers.defaults`), so no layer is needed; `Furl.layer({ resolvers })` sets the list and requires nothing.
 - Key files:
   - `src/furl.ts` (`Furl` resolver-list reference, `Furl.layer`, `Furl.fetch`, `FurlError`)

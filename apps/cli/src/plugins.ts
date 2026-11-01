@@ -2,7 +2,7 @@
 
 /**
  * Declarative host/path matcher used to route plugins for a URL. A standalone
- * copy of `furl-lib`'s `MatchPattern` so plugin authors need no other package.
+ * copy of `furl-core`'s `MatchPattern` so plugin authors need no other package.
  */
 export type MatchPattern = {
   hostname: string;

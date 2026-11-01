@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { ProviderName, Resolver } from 'furl-lib';
+import type { ProviderName, Resolver } from 'furl-core';
 import {
   ConfigError,
   providerNames,
@@ -7,7 +7,7 @@ import {
   type ResolveOutcome,
   ResolverError,
   ResolveSuccess,
-} from 'furl-lib';
+} from 'furl-core';
 
 import type {
   FurlConfigServiceShape,

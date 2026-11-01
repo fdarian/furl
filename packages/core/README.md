@@ -1,4 +1,4 @@
-# furl-lib
+# furl-core
 
 Fetch any URL as markdown, through a pluggable chain of resolvers. Built on [Effect](https://effect.website). The engine behind the [`furl`](https://www.npmjs.com/package/furl-cli) CLI.
 
@@ -7,15 +7,15 @@ It runs on Node 20+ and Bun, as an ES module, and reads no config file or keycha
 ## Install
 
 ```sh
-npm i furl-lib effect
+npm i furl-core effect
 ```
 
-`effect` (v4, 4.1.0 or newer) is a peer dependency, so your app and `furl-lib` share one Effect runtime.
+`effect` (v4, 4.1.0 or newer) is a peer dependency, so your app and `furl-core` share one Effect runtime.
 
 ## Usage
 
 ```ts
-import { Furl } from 'furl-lib';
+import { Furl } from 'furl-core';
 import { Effect } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 

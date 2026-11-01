@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { ConfigProvider, Effect } from 'effect';
-import { AllResolversFailed, describeCause } from 'furl-lib';
+import { AllResolversFailed, describeCause } from 'furl-core';
 
 import { MissingProviderKeyError } from '../errors.ts';
 import { createDefaultResolvers } from './default-resolvers.ts';

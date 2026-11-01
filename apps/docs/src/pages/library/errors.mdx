@@ -3,7 +3,7 @@ title: Errors
 description: The failures a fetch can end in, and how to handle one
 ---
 
-`Furl.fetch` fails with a `FurlError`, a union of three tagged errors, all exported from `furl-lib`:
+`Furl.fetch` fails with a `FurlError`, a union of three tagged errors, all exported from `furl-core`:
 
 | Tag | Raised when |
 |---|---|
@@ -18,7 +18,7 @@ Failures from a single resolver, such as a transport error or a missing API key,
 Each error carries a `_tag`, so `Effect.catchTag` handles one and leaves the others in the error type:
 
 ```ts
-import { Furl, Resolvers } from 'furl-lib';
+import { Furl, Resolvers } from 'furl-core';
 import { Effect } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 

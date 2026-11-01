@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem, Option } from 'effect';
-import { ConfigError } from 'furl-lib';
+import { ConfigError } from 'furl-core';
 
 import type { FurlConfig, FurlConfigServiceShape } from '../config-service.ts';
 import { KeychainError } from '../errors.ts';

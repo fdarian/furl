@@ -32,7 +32,7 @@
     "@effect/platform-bun": "catalog:",
     "@repo/config": "workspace:*",
     "effect": "catalog:",
-    "furl-lib": "workspace:*",
+    "furl-core": "workspace:*",
     "tsrs": "catalog:"
   }
 }

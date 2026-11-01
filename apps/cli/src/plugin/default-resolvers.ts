@@ -1,6 +1,6 @@
 import { Config, Effect, Option } from 'effect';
-import type { ProviderName, Resolver } from 'furl-lib';
-import { ProviderError, Resolvers } from 'furl-lib';
+import type { ProviderName, Resolver } from 'furl-core';
+import { ProviderError, Resolvers } from 'furl-core';
 
 import { MissingProviderKeyError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';

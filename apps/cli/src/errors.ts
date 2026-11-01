@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { describeCause, redactUrlUserInfo } from 'furl-lib';
+import { describeCause, redactUrlUserInfo } from 'furl-core';
 
 export class KeychainError extends Schema.TaggedError<KeychainError>(
   'furl/KeychainError',

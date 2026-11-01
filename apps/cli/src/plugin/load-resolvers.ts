@@ -1,6 +1,6 @@
 import type { Context } from 'effect';
 import { Effect } from 'effect';
-import type { ConfigError, Resolver } from 'furl-lib';
+import type { ConfigError, Resolver } from 'furl-core';
 
 import type { FurlConfigServiceShape } from '../config-service.ts';
 import type { PluginLoadError } from '../errors.ts';

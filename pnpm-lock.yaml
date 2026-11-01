@@ -208,7 +208,7 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.1
-      furl-lib:
+      furl-core:
         specifier: workspace:*
         version: link:../../packages/core
       tsrs:
