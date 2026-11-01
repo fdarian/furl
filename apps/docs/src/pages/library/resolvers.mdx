@@ -1,46 +1,143 @@
 ---
 title: Resolvers
-description: Choose which resolvers a fetch runs, and where provider keys come from
+description: Choose which resolvers a fetch runs, supply provider keys, and write your own
 ---
 
-A fetch runs an ordered list of resolvers and returns the first success. The library takes that list from the same place the CLI does, and lets you replace it per call.
+A fetch runs an ordered list of resolvers and returns the first success. A resolver that doesn't apply to the URL declines and the next one runs. A resolver that fails is recorded and the next one runs too; the failures only reach you if every resolver gives up, as [`AllResolversFailed`](/library/errors).
 
-## The config file
+`furl-lib` reads no config file, keychain or plugin folder. The list you give it is the list that runs. Reading `order` from `~/.config/furl/config.json` ([Fetch strategy](/fetch-strategy)), keys saved in the keychain by `furl providers` ([exa](/plugins/builtins/exa)), and installed [plugins](/plugins/overview) are CLI features.
 
-Without `resolvers`, `furl.fetch(url)` reads `order` from `~/.config/furl/config.json`. If the file or its `order` is missing, the order is `["default:*"]`. Reading the path needs `HOME` set; if it isn't, the fetch fails with a `ConfigError`.
+## The built-in resolvers
 
-That makes a library call behave like `furl <url>` on the same machine. See [Fetch strategy](/fetch-strategy#configuring-the-order) for what the default chain does and how to edit the file, and [Plugins](/plugins/getting-started#how-its-written-in-the-config) for `plugin:` entries and their config.
+Each is a value on `Resolvers`, and its `id` is what `source` reports.
 
-## Overriding per call
+| Resolver | `id` | Does |
+|---|---|---|
+| `Resolvers.raw` | `raw` | Fetches the URL as-is when its path ends in a file extension |
+| `Resolvers.direct` | `direct` | Asks for `Accept: text/markdown` and accepts a markdown response |
+| `Resolvers.mdSuffix` | `md-suffix` | Retries the URL with `.md` appended |
+| `Resolvers.defaults` | | The three above, in that order. This is what `Furl.layer()` uses |
 
-`resolvers` replaces the configured order for that one call. Nothing is merged with the config file's `order`.
+These three need no key and send nothing to a third party. [Fetch strategy](/fetch-strategy) explains how they probe a site.
+
+## Adding a provider
+
+`Resolvers.jina`, `Resolvers.exa` and `Resolvers.firecrawl` call a third-party API to parse pages that don't serve markdown. They are factories, and none is in `Resolvers.defaults`: a provider only gets your URLs if you list it.
 
 ```ts
-furl.fetch('https://example.com/post', {
-  resolvers: ['plugin:x', 'default:*', 'default:exa'],
+import { Furl, Resolvers } from 'furl-lib';
+import { Effect, Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
+
+const layer = Furl.layer({
+  resolvers: [...Resolvers.defaults, Resolvers.jina()],
+}).pipe(Layer.provide(FetchHttpClient.layer));
+
+const result = await Effect.runPromise(
+  Furl.fetch('https://example.com/').pipe(Effect.provide(layer)),
+);
+console.log(result.source);
+```
+
+Output:
+```text
+jina
+```
+
+The free resolvers run first and `jina` only runs once they have all declined.
+
+### API keys
+
+Each factory takes an optional `apiKey`:
+
+| Provider | Environment variable | Without a key |
+|---|---|---|
+| `jina` | `JINA_API_KEY` | Runs keyless, with a lower rate limit |
+| `exa` | `EXA_API_KEY` | Fails with `NoProviderKey` |
+| `firecrawl` | `FIRECRAWL_API_KEY` | Fails with `NoProviderKey` |
+
+When `apiKey` is omitted, the resolver reads its environment variable through Effect's `Config`. Pass `apiKey` to take the key from somewhere else. It is either a string, or an Effect that succeeds with an `Option<string>`:
+
+```ts
+import { Resolvers } from 'furl-lib';
+import { Effect, Option } from 'effect';
+
+const fromLiteral = Resolvers.exa({ apiKey: 'my-exa-key' });
+
+const fromAppEnv = Resolvers.exa({
+  apiKey: Effect.sync(() => Option.fromNullishOr(process.env.MY_APP_EXA_KEY)),
 });
 ```
 
-Resolvers are tried left to right, and the first success wins. Each entry is one of three token forms:
+The Effect runs on every fetch, so a rotated key is picked up without rebuilding the layer. `Option.none()` means "no key" and behaves as in the table. If the Effect itself fails, the resolver fails with that error as its cause and the chain moves on.
 
-| Token | Runs |
-|---|---|
-| `default:*` | The keyless probes, `raw`, `direct` and `md-suffix`, in that order. Providers aren't included |
-| `default:<name>` | One built-in: `raw`, `direct`, `md-suffix`, `jina`, `firecrawl` or `exa` |
-| `plugin:<name>` | The plugin installed at `~/.config/furl/plugins/<name>` |
+## Overriding per call
 
-A resolver listed twice runs once, and a plugin whose `match` doesn't fit the URL is skipped. An override still takes a plugin's settings from the `plugins` section of the config file.
+`resolvers` in `Furl.fetch`'s options replaces the layer's list for that call. Nothing is merged.
 
-An empty list, an unknown `default:` name, or a token in none of these forms fails with a `ConfigError`. A `plugin:` entry that isn't installed fails with a `PluginLoadError`. See [Errors](/library/errors).
+```ts
+Furl.fetch('https://example.com/', { resolvers: [Resolvers.jina()] });
+```
 
-## API provider keys
+## Writing your own
 
-`jina`, `firecrawl` and `exa` call a third-party API. Each looks for its key in the environment first, then in the keychain entry saved by `furl providers`:
+A resolver is a plain object, so one is a few lines. This one answers GitHub repository URLs with the repo's README:
 
-| Provider | Environment variable | Key |
-|---|---|---|
-| `jina` | `JINA_API_KEY` | Optional; raises the rate limit |
-| `firecrawl` | `FIRECRAWL_API_KEY` | Required |
-| `exa` | `EXA_API_KEY` | Required |
+```ts
+import {
+  type Resolver,
+  ResolveDecline,
+  ResolverError,
+  ResolveSuccess,
+} from 'furl-lib';
+import { Effect } from 'effect';
+import { HttpClient } from 'effect/http';
 
-The library never prompts for a key. A resolver whose key is missing fails and the chain moves on, so the miss only reaches you if every resolver fails; see [Errors](/library/errors). The [builtins](/plugins/builtins/exa) pages cover what each provider returns.
+export const githubReadme: Resolver = {
+  id: 'github-readme',
+  match: { hostname: 'github.com', path: '/*/*' },
+  run: (url) =>
+    Effect.gen(function* () {
+      const fail = (cause: unknown) =>
+        new ResolverError({ id: 'github-readme', cause: cause });
+
+      const response = yield* HttpClient.get(
+        `https://raw.githubusercontent.com${url.pathname}/HEAD/README.md`,
+      ).pipe(Effect.mapError(fail));
+
+      if (response.status !== 200) {
+        return new ResolveDecline();
+      }
+
+      const markdown = yield* response.text.pipe(Effect.mapError(fail));
+      return new ResolveSuccess({ markdown: markdown });
+    }),
+};
+```
+
+- `id` is what `source` reports and what `AllResolversFailed` lists, so make it unique within your list.
+- `match` is checked before `run`. A `hostname` must equal the URL's, and each `*` in `path` stands for exactly one path segment. `null` matches every URL.
+- `run` receives the parsed `URL` and returns a `ResolveSuccess` with the markdown, or a `ResolveDecline` to hand over to the next resolver. `HttpClient` is the one you gave the layer.
+- Failing with `ResolverError` records the cause and continues. Failing with `ConfigError` stops the whole fetch immediately; use it only when the problem isn't this URL's.
+
+Put it in the list like any other resolver. Because it comes first, it sees GitHub URLs before the free probes do:
+
+```ts
+import { Furl, Resolvers } from 'furl-lib';
+import { Effect, Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
+
+const layer = Furl.layer({
+  resolvers: [githubReadme, ...Resolvers.defaults],
+}).pipe(Layer.provide(FetchHttpClient.layer));
+
+const result = await Effect.runPromise(
+  Furl.fetch('https://github.com/fdarian/nisi').pipe(Effect.provide(layer)),
+);
+console.log(result.source);
+```
+
+Output:
+```text
+github-readme
+```

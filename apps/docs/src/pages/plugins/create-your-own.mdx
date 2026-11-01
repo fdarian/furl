@@ -128,12 +128,12 @@ With `plugins.x` set to `{ "apiKey": "secret:x-api-key", "mode": "api" }`, `ctx.
 
 It's a real subpath export of the `furl-cli` package, and also a Bun virtual module the CLI intercepts at runtime — so a cloned plugin folder resolves it without an `npm install`.
 
-For types, install `furl-lib` as a dev dependency next to `furl-cli`:
+For types, install `furl-cli` as a dev dependency in your plugin. Nothing else is needed, and it works under npm and pnpm alike:
 
-```sh
-bun add -d furl-lib
+```package-install
+npm i -D furl-cli
 ```
 
-`furl-cli/plugins` re-exports its types from `furl-lib`, so without it the import has no types. This needs a flat `node_modules` (bun, npm); under pnpm's default layout `furl-cli` can't see your `furl-lib`. `definePlugin` is an identity function, so a plugin still runs without any of this.
+`definePlugin` is an identity function, so a plugin still runs without any of this.
 
 </Expandable>
