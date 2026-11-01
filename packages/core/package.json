@@ -14,26 +14,25 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
   },
   "publishConfig": {
     "access": "public",
-    "provenance": true,
     "exports": {
       ".": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs"
       }
     }
   },
   "scripts": {
-    "build": "rm -rf dist && tsrs -p tsconfig.build.json",
-    "prepack": "pnpm run build",
-    "check:tsc": "tsrs --noEmit && tsrs --noEmit -p tsconfig.build.json",
-    "check:lint": "biome check .",
+    "build": "tsdown",
+    "check:type": "tsrs --noEmit && tsrs --noEmit -p tsconfig.build.json",
+    "check:lint": "biome lint .",
     "test": "bun test"
   },
   "peerDependencies": {
@@ -42,6 +41,7 @@
   "devDependencies": {
     "@repo/config": "workspace:*",
     "effect": "catalog:",
+    "tsdown": "catalog:",
     "tsrs": "catalog:"
   }
 }

@@ -10,4 +10,4 @@
   - `src/builtin/*` (keyless probes), `src/providers/*` (API providers; `api-key.ts` resolves `apiKey` or the env var)
   - `src/index.ts` (the public surface)
 - Resolver ids are the public identity: `raw`, `direct`, `md-suffix`, `jina`, `exa`, `firecrawl`. `FetchResult.source` is the winning resolver's `id`; the CLI overrides ids with its order tokens.
-- Packaging: `exports` points at `src/index.ts` for the monorepo; `publishConfig.exports` points at built `dist` (`tsconfig.build.json`, run by `prepack`). `check:tsc` also type-checks the build config with `types: []`, so a `Bun` or `process` global in shipped code fails the check.
+- Packaging: `exports` points at `src/index.ts` for the monorepo; `publishConfig.exports` points at the `dist` that tsdown builds (`tsdown.config.ts`; ESM plus `.d.mts` only, `effect` stays external). `check:type` also type-checks `tsconfig.build.json` with `types: []`, so a `Bun` or `process` global in shipped code fails the check.

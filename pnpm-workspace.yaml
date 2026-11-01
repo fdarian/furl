@@ -8,6 +8,7 @@ catalog:
   tsrs: ^0.18.0-ts7.1.0-dev.20260929
   effect: 4.1.1
   "@effect/platform-bun": 4.1.1
+  tsdown: ^0.23.4
 allowBuilds:
   es5-ext: false
   esbuild: true
