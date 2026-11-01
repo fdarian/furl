@@ -22,9 +22,7 @@ These three need no key and send nothing to a third party. [Fetch strategy](/fet
 
 ## Changing the default list
 
-With no setup, `Furl.fetch` runs `Resolvers.defaults`. `Furl.layer({ resolvers })` is how you replace that list for everything in the scope you provide it to. It needs no other layer: requests go through the runtime's global `fetch` unless an `HttpClient` is already in scope when the layer is built, in which case that one is used.
-
-To use your own client, such as one with a proxy or extra headers, provide it to the layer: `Furl.layer().pipe(Layer.provide(myClientLayer))`, where `myClientLayer` is any `Layer<HttpClient>` from `effect/http`.
+`Furl.fetch` runs `Resolvers.defaults` unless told otherwise. `Furl.layer({ resolvers })` replaces that list for everything in the scope you provide it to. It sets only the list and requires nothing; the HTTP client is still the one you provide to the fetch.
 
 The next sections use it to add a provider and a resolver of your own.
 
@@ -35,13 +33,17 @@ The next sections use it to add a provider and a resolver of your own.
 ```ts
 import { Furl, Resolvers } from 'furl-lib';
 import { Effect } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 const layer = Furl.layer({
   resolvers: [...Resolvers.defaults, Resolvers.jina()],
 });
 
 const result = await Effect.runPromise(
-  Furl.fetch('https://example.com/').pipe(Effect.provide(layer)),
+  Furl.fetch('https://example.com/').pipe(
+    Effect.provide(layer),
+    Effect.provide(FetchHttpClient.layer),
+  ),
 );
 console.log(result.source);
 ```
@@ -124,7 +126,7 @@ export const githubReadme: Resolver = {
 
 - `id` is what `source` reports and what `AllResolversFailed` lists, so make it unique within your list.
 - `match` is checked before `run`. A `hostname` must equal the URL's, and each `*` in `path` stands for exactly one path segment. `null` matches every URL.
-- `run` receives the parsed `URL` and returns a `ResolveSuccess` with the markdown, or a `ResolveDecline` to hand over to the next resolver. `HttpClient` is provided for you: the global `fetch` client, or the one in scope when `Furl.layer` was built.
+- `run` receives the parsed `URL` and returns a `ResolveSuccess` with the markdown, or a `ResolveDecline` to hand over to the next resolver. `HttpClient` is the one provided to `Furl.fetch`.
 - Failing with `ResolverError` records the cause and continues. Failing with `ConfigError` stops the whole fetch immediately; use it only when the problem isn't this URL's.
 
 Put it in the list like any other resolver. Because it comes first, it sees GitHub URLs before the free probes do:
@@ -132,13 +134,17 @@ Put it in the list like any other resolver. Because it comes first, it sees GitH
 ```ts
 import { Furl, Resolvers } from 'furl-lib';
 import { Effect } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 const layer = Furl.layer({
   resolvers: [githubReadme, ...Resolvers.defaults],
 });
 
 const result = await Effect.runPromise(
-  Furl.fetch('https://github.com/fdarian/nisi').pipe(Effect.provide(layer)),
+  Furl.fetch('https://github.com/fdarian/nisi').pipe(
+    Effect.provide(layer),
+    Effect.provide(FetchHttpClient.layer),
+  ),
 );
 console.log(result.source);
 ```

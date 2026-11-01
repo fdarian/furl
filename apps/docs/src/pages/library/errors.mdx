@@ -20,6 +20,7 @@ Each error carries a `_tag`, so `Effect.catchTag` handles one and leaves the oth
 ```ts
 import { Furl, Resolvers } from 'furl-lib';
 import { Effect } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
 const layer = Furl.layer({
   resolvers: [...Resolvers.defaults, Resolvers.exa()],
@@ -34,7 +35,13 @@ const program = Furl.fetch('https://example.com/').pipe(
   ),
 );
 
-console.log(await Effect.runPromise(program.pipe(Effect.provide(layer))));
+const result = await Effect.runPromise(
+  program.pipe(
+    Effect.provide(layer),
+    Effect.provide(FetchHttpClient.layer),
+  ),
+);
+console.log(result);
 ```
 
 Output, with `EXA_API_KEY` unset:

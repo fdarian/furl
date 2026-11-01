@@ -24,8 +24,11 @@ npm i furl-lib effect
 ```ts
 import { Furl } from 'furl-lib';
 import { Effect } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 
-const result = await Effect.runPromise(Furl.fetch('https://bun.sh/docs.md'));
+const result = await Effect.runPromise(
+  Furl.fetch('https://bun.sh/docs.md').pipe(Effect.provide(FetchHttpClient.layer)),
+);
 console.log(result.source);
 console.log(result.markdown.split('\n')[0]);
 ```
@@ -36,9 +39,9 @@ raw
 # Welcome to Bun
 ```
 
-There is nothing to set up. `Furl.fetch` runs the three keyless `Resolvers.defaults` over the runtime's global `fetch`, so it works the moment `effect` is installed. Inside an Effect program, `yield* Furl` gives you the same service to call `fetch` on.
+furl uses whatever `HttpClient` you provide, so your app's tracing, retries or proxy apply to its requests. `FetchHttpClient` is the one that uses the runtime's global `fetch`. Without `Furl.layer`, `Furl.fetch` runs the three keyless `Resolvers.defaults`.
 
-To run a different list of resolvers, add a provider such as `jina`, or use your own HTTP client, provide `Furl.layer` as shown on [Resolvers](/library/resolvers).
+To run a different list of resolvers or add a provider such as `jina`, see [Resolvers](/library/resolvers).
 
 ### The result
 
