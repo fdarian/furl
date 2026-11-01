@@ -1,7 +1,7 @@
 {
   "name": "furl-lib",
   "version": "0.0.0",
-  "description": "Fetch any URL as markdown with a pluggable resolver chain. Bun-only, ships TypeScript source.",
+  "description": "Fetch any URL as markdown with a pluggable resolver chain. Runs on Node, Bun and other runtimes.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -13,20 +13,26 @@
     ".": "./src/index.ts"
   },
   "files": [
-    "src",
-    "!src/**/*.test.ts",
-    "!src/**/test-doubles.ts",
+    "dist",
     "README.md"
   ],
   "engines": {
-    "bun": ">=1.2.21"
+    "node": ">=20"
   },
   "publishConfig": {
     "access": "public",
-    "provenance": true
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   },
   "scripts": {
-    "check:tsc": "tsrs --noEmit",
+    "build": "rm -rf dist && tsrs -p tsconfig.build.json",
+    "prepack": "pnpm run build",
+    "check:tsc": "tsrs --noEmit && tsrs --noEmit -p tsconfig.build.json",
     "check:lint": "biome check .",
     "test": "bun test"
   },
@@ -34,7 +40,6 @@
     "effect": "^4.1.0"
   },
   "devDependencies": {
-    "@effect/platform-bun": "catalog:",
     "@repo/config": "workspace:*",
     "effect": "catalog:",
     "tsrs": "catalog:"

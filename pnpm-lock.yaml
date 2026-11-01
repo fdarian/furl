@@ -250,9 +250,6 @@ importers:
 
   packages/core:
     devDependencies:
-      '@effect/platform-bun':
-        specifier: 'catalog:'
-        version: 4.1.1(effect@4.1.1)
       '@repo/config':
         specifier: workspace:*
         version: link:../config
