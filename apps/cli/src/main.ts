@@ -3,8 +3,6 @@
 import { BunRuntime, BunServices } from '@effect/platform-bun';
 import { Effect, Layer } from 'effect';
 import { Command } from 'effect/cli';
-import { FetchHttpClient } from 'effect/http';
-import { Furl } from 'furl-lib';
 import packageJson from '../package.json';
 import { rootCommand } from './commands/root';
 import { FurlConfigServiceLive } from './config-service';
@@ -32,8 +30,6 @@ const pluginManagerLayer = PluginManager.layer.pipe(
   ),
 );
 
-const furlLayer = Furl.layer().pipe(Layer.provide(FetchHttpClient.layer));
-
 const appLayer = Layer.mergeAll(
   BunServices.layer,
   SecretsLive,
@@ -41,7 +37,6 @@ const appLayer = Layer.mergeAll(
   PluginLoader.layer,
   pluginDiscoveryLayer,
   pluginManagerLayer,
-  furlLayer,
 );
 
 const program = Command.run(rootCommand, {

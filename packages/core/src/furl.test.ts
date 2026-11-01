@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect, Layer } from 'effect';
-import { HttpClient } from 'effect/http';
+import { FetchHttpClient, HttpClient } from 'effect/http';
 
 import { ConfigError } from './errors.ts';
 import { Furl } from './furl.ts';
@@ -23,6 +23,88 @@ const makeLayer = (options?: Parameters<typeof Furl.layer>[0]) =>
       ),
     ),
   );
+
+const stubFetch = (body: string): typeof globalThis.fetch =>
+  Object.assign(async () => new Response(body, { status: 200 }), {
+    preconnect: () => {},
+  });
+
+const withGlobalFetch = <A, E>(body: string, effect: Effect.Effect<A, E>) =>
+  Effect.provideService(effect, FetchHttpClient.Fetch, stubFetch(body));
+
+describe('Furl without a layer', () => {
+  it('fetches through Resolvers.defaults and the global fetch client', async () => {
+    const result = await Effect.runPromise(
+      withGlobalFetch('# global', Furl.fetch('https://example.com/file.md')),
+    );
+
+    expect(result).toEqual({ markdown: '# global', source: 'raw' });
+  });
+
+  it('resolves the service with yield*', async () => {
+    const result = await Effect.runPromise(
+      withGlobalFetch(
+        '# global',
+        Effect.gen(function* () {
+          const furl = yield* Furl;
+          return yield* furl.fetch('https://example.com/file.md');
+        }),
+      ),
+    );
+
+    expect(result.source).toBe('raw');
+  });
+
+  it('honours the per-call resolvers', async () => {
+    const result = await Effect.runPromise(
+      Furl.fetch('https://example.com/page', {
+        resolvers: [succeedWith('call', '# call')],
+      }),
+    );
+
+    expect(result).toEqual({ markdown: '# call', source: 'call' });
+  });
+});
+
+describe('Furl.layer', () => {
+  it('works alone with just resolvers', async () => {
+    const result = await Effect.runPromise(
+      Furl.fetch('https://example.com/page').pipe(
+        Effect.provide(
+          Furl.layer({ resolvers: [succeedWith('custom', '# custom')] }),
+        ),
+      ),
+    );
+
+    expect(result).toEqual({ markdown: '# custom', source: 'custom' });
+  });
+
+  it('falls back to the global fetch client when none is provided', async () => {
+    const result = await Effect.runPromise(
+      withGlobalFetch(
+        '# global',
+        Furl.fetch('https://example.com/file.md').pipe(
+          Effect.provide(Furl.layer()),
+        ),
+      ),
+    );
+
+    expect(result).toEqual({ markdown: '# global', source: 'raw' });
+  });
+
+  it('uses the HttpClient provided while building the layer', async () => {
+    const result = await Effect.runPromise(
+      withGlobalFetch(
+        '# not used',
+        Furl.fetch('https://example.com/file.md').pipe(
+          Effect.provide(makeLayer()),
+        ),
+      ),
+    );
+
+    expect(result).toEqual({ markdown: '# hi', source: 'raw' });
+  });
+});
 
 describe('Furl', () => {
   it('uses Resolvers.defaults when the layer has no resolvers', async () => {
