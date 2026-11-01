@@ -128,6 +128,12 @@ With `plugins.x` set to `{ "apiKey": "secret:x-api-key", "mode": "api" }`, `ctx.
 
 It's a real subpath export of the `furl-cli` package, and also a Bun virtual module the CLI intercepts at runtime — so a cloned plugin folder resolves it without an `npm install`.
 
-Types currently only work inside this monorepo; the canonical ones live in `@furl/core`, which isn't published yet. `definePlugin` is an identity function, so it still runs fine without them — you just won't get autocomplete.
+For types, install `furl-cli` as a dev dependency in your plugin. Nothing else is needed, and it works under npm and pnpm alike:
+
+```package-install
+npm i -D furl-cli
+```
+
+`definePlugin` is an identity function, so a plugin still runs without any of this.
 
 </Expandable>

@@ -1,4 +1,4 @@
-import { Command } from 'effect/unstable/cli';
+import { Command } from 'effect/cli';
 import { runConfigurePluginMenu } from './configure';
 import { pluginsInstallCommand } from './install';
 import { pluginsListCommand } from './list';

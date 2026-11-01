@@ -19,44 +19,48 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup
         uses: ./.github/actions/setup
-
-      - uses: actions/setup-node@v6
         with:
-          node-version: "24"
-          package-manager-cache: false # never use caching in release builds - uses: oven-sh/setup-bun@v2
-
-      - run: bun run --cwd apps/cli build
+          registry-url: "https://registry.npmjs.org"
 
       - id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          version: pnpm run ci:version
-          publish: pnpm run ci:release
-          createGithubReleases: true
+          version-script: bun run ci:version
+          publish-script: bun run ci:release
+          create-github-releases: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find furl-cli version
+        id: furl-cli
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          VERSION=$(jq -r '.[] | select(.name == "furl-cli") | .version' <<< "$PUBLISHED_PACKAGES")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published-packages }}
 
       - name: Build binaries
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.furl-cli.outputs.version != ''
         run: cd apps/cli && pnpm run build:binaries
 
       - name: Upload release assets
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.furl-cli.outputs.version != ''
         run: |
-          VERSION="${{ fromJSON(steps.changesets.outputs.publishedPackages)[0].version }}"
           TAG="furl-cli@${VERSION}"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "Release $VERSION"
           gh release upload "$TAG" apps/cli/dist/releases/*.tar.gz --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.furl-cli.outputs.version }}
 
       - name: Update Homebrew formula
-        if: steps.changesets.outputs.published == 'true'
-        run: |
-          VERSION="${{ fromJSON(steps.changesets.outputs.publishedPackages)[0].version }}"
-          cd apps/cli && VERSION="$VERSION" pnpm run scripts/update-homebrew.ts
+        if: steps.furl-cli.outputs.version != ''
+        run: cd apps/cli && bun run scripts/update-homebrew.ts
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.furl-cli.outputs.version }}

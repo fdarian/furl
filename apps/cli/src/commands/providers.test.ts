@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
-import type { FurlConfig } from '@furl/core';
-import { FurlConfigService } from '@furl/core';
 import { Effect, Option } from 'effect';
+import type { FurlConfig } from '../config-service';
+import { FurlConfigService } from '../config-service';
 
 import {
   hintIfJinaNotInOrder,

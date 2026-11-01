@@ -1,0 +1,52 @@
+---
+title: Errors
+description: The failures a fetch can end in, and how to handle one
+---
+
+`Furl.fetch` fails with a `FurlError`, a union of three tagged errors, all exported from `furl-core`:
+
+| Tag | Raised when |
+|---|---|
+| `AllResolversFailed` | No resolver produced markdown. `url` is the address and `failures` lists `{ id, cause }` for each resolver that failed. A decline isn't a failure, so the list is empty when every resolver declined |
+| `FetchError` | The URL string can't be parsed |
+| `ConfigError` | A resolver reported a configuration problem, which stops the fetch at once. The built-in resolvers never raise it; a [custom resolver](/library/resolvers#writing-your-own) can |
+
+Failures from a single resolver, such as a transport error or a missing API key, don't surface on their own. They are collected into `AllResolversFailed.failures` and reported only if nothing else succeeds. Each `cause` is the underlying error, for example `NoProviderKey` or `ProviderError`, both exported too.
+
+## Handling one
+
+Each error carries a `_tag`, so `Effect.catchTag` handles one and leaves the others in the error type:
+
+```ts
+import { Furl, Resolvers } from 'furl-core';
+import { Effect } from 'effect';
+import { FetchHttpClient } from 'effect/http';
+
+const layer = Furl.layer({
+  resolvers: [...Resolvers.defaults, Resolvers.exa()],
+});
+
+const program = Furl.fetch('https://example.com/').pipe(
+  Effect.map((result) => result.markdown),
+  Effect.catchTag('AllResolversFailed', (error) =>
+    Effect.succeed(
+      `No markdown for ${error.url}. Failed: ${error.failures.map((failure) => failure.id).join(', ')}`,
+    ),
+  ),
+);
+
+const result = await Effect.runPromise(
+  program.pipe(
+    Effect.provide(layer),
+    Effect.provide(FetchHttpClient.layer),
+  ),
+);
+console.log(result);
+```
+
+Output, with `EXA_API_KEY` unset:
+```text
+No markdown for https://example.com/. Failed: exa
+```
+
+After the `catchTag`, `program` can still fail with `FetchError` or `ConfigError`. Every error also has a readable `message`; for `AllResolversFailed` it lists each failure, such as `No resolver could produce markdown for https://example.com/. Tried: exa (No API key configured for exa.).`

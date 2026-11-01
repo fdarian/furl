@@ -1,0 +1,62 @@
+---
+title: Getting started
+description: Fetch a URL as markdown from your own code on Node or Bun
+---
+
+`furl-core` is the engine behind the `furl` CLI, packaged as an [Effect](https://effect.website) library. Give it a URL and it walks the same [resolver chain](/fetch-strategy), returning markdown from the first resolver that can produce it. Use it when your agent or app needs that in-process instead of shelling out to `furl`.
+
+## Requirements
+
+- ESM: load it with `import`, not `require`.
+- Node 20 or newer, or Bun.
+- Effect v4, 4.1.0 or newer.
+
+## Install
+
+```package-install
+npm i furl-core effect
+```
+
+`effect` is a peer dependency, so your app and `furl-core` share one Effect runtime.
+
+## First fetch
+
+```ts
+import { Furl } from 'furl-core';
+import { Effect } from 'effect';
+import { FetchHttpClient } from 'effect/http';
+
+const result = await Effect.runPromise(
+  Furl.fetch('https://bun.sh/docs.md').pipe(Effect.provide(FetchHttpClient.layer)),
+);
+console.log(result.source);
+console.log(result.markdown.split('\n')[0]);
+```
+
+Output:
+```text
+raw
+# Welcome to Bun
+```
+
+furl uses whatever `HttpClient` you provide, so your app's tracing, retries or proxy apply to its requests. `FetchHttpClient` is the one that uses the runtime's global `fetch`. Without `Furl.layer`, `Furl.fetch` runs the three keyless `Resolvers.defaults`.
+
+To run a different list of resolvers or add a provider such as `jina`, see [Resolvers](/library/resolvers).
+
+### The result
+
+`Furl.fetch` succeeds with `{ markdown, source }`:
+
+| Field | Meaning |
+|---|---|
+| `markdown` | The page as markdown |
+| `source` | The `id` of the resolver that produced it, such as `raw` |
+
+## What it won't do
+
+The default resolvers succeed on URLs that already serve markdown or a plain file. For a page that serves only HTML, the fetch fails with `AllResolversFailed`; add a provider such as `jina` to parse those, as shown on [Resolvers](/library/resolvers).
+
+## Next steps
+
+- [Resolvers](/library/resolvers) — choose which resolvers run, and where API provider keys come from.
+- [Errors](/library/errors) — handle the ways a fetch can fail.

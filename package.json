@@ -8,11 +8,11 @@
     "test": "turbo run test",
     "format": "biome check --write",
     "ci:version": "changeset version",
-    "ci:release": "changeset publish"
+    "ci:release": "pnpm --filter furl-core build && pnpm --filter furl-cli build && changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.0.6",
-    "@changesets/cli": "^2.27.0",
+    "@changesets/cli": "^3.0.3",
     "@types/bun": "^1.3.13",
     "turbo": "^2.0.14"
   }

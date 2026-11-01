@@ -1,19 +1,16 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from '@effect/platform-bun';
-import {
-  FurlConfigServiceLive,
-  FurlLive,
-  PluginDiscovery,
-  PluginLoader,
-  PluginManager,
-  SecretsLive,
-} from '@furl/core';
 import { Effect, Layer } from 'effect';
-import { Command } from 'effect/unstable/cli';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { Command } from 'effect/cli';
+import { FetchHttpClient } from 'effect/http';
 import packageJson from '../package.json';
 import { rootCommand } from './commands/root';
+import { FurlConfigServiceLive } from './config-service';
+import { PluginDiscovery } from './plugin/discovery';
+import { PluginLoader } from './plugin/loader';
+import { PluginManager } from './plugin/manager';
+import { SecretsLive } from './secrets-service';
 
 const configLayer = FurlConfigServiceLive.pipe(
   Layer.provide(BunServices.layer),
@@ -34,17 +31,6 @@ const pluginManagerLayer = PluginManager.layer.pipe(
   ),
 );
 
-const furlLayer = FurlLive.pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      BunServices.layer,
-      FetchHttpClient.layer,
-      SecretsLive,
-      configLayer,
-    ),
-  ),
-);
-
 const appLayer = Layer.mergeAll(
   BunServices.layer,
   SecretsLive,
@@ -52,7 +38,7 @@ const appLayer = Layer.mergeAll(
   PluginLoader.layer,
   pluginDiscoveryLayer,
   pluginManagerLayer,
-  furlLayer,
+  FetchHttpClient.layer,
 );
 
 const program = Command.run(rootCommand, {

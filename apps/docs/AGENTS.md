@@ -6,7 +6,7 @@
 - Build command:
   - `pnpm build`
 - Pages live in:
-  - `src/pages/**/*.mdx` (title/description in frontmatter; callouts and steps use Blume components)
+  - `src/pages/**/*.mdx` (title/description in frontmatter; callouts and steps use Blume components; library install commands use a ```` ```package-install ```` fence, Blume's built-in package-manager tabs, MDX only)
 - Key files:
   - `blume.config.ts` (site config + sidebar, wrapped in `withPreset`)
   - `theme.css`, `components.ts` (wiring only; the look lives in the preset)

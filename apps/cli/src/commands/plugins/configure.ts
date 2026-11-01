@@ -1,22 +1,19 @@
-import type {
-  ConfigField,
-  DiscoveredPlugin,
-  InvalidSecretError,
-  KeychainError,
-} from '@furl/core';
+import type { Terminal } from 'effect';
+import { Console, Effect, Option, Redacted } from 'effect';
+import { Prompt } from 'effect/cli';
+import { FurlConfigService } from '../../config-service';
+import type { InvalidSecretError, KeychainError } from '../../errors';
+import type { DiscoveredPlugin } from '../../plugin/discovery';
+import { PluginDiscovery } from '../../plugin/discovery';
+import { pluginOrderToken } from '../../plugin/order';
 import {
-  FurlConfigService,
   getGenericSecret,
-  PluginDiscovery,
-  pluginOrderToken,
-  Secrets,
   secretNameFor,
   secretReferencePrefix,
   setGenericSecret,
-} from '@furl/core';
-import type { Terminal } from 'effect';
-import { Console, Effect, Option, Redacted } from 'effect';
-import { Prompt } from 'effect/unstable/cli';
+} from '../../plugin/resolve-config';
+import type { ConfigField } from '../../plugins';
+import { Secrets } from '../../secrets-service';
 import {
   enumChoices,
   fieldMessage,

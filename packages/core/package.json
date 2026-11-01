@@ -1,22 +1,47 @@
 {
-  "name": "@furl/core",
-  "private": true,
+  "name": "furl-core",
+  "version": "0.0.0",
+  "description": "Fetch any URL as markdown with a pluggable resolver chain. Runs on Node, Bun and other runtimes.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fdarian/furl.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./plugins": "./src/plugin/index.ts"
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs"
+      }
+    }
   },
   "scripts": {
-    "check:tsc": "tsrs --noEmit",
-    "check:lint": "biome check .",
+    "build": "tsdown",
+    "check:type": "tsrs --noEmit && tsrs --noEmit -p tsconfig.build.json",
+    "check:lint": "biome lint .",
     "test": "bun test"
   },
-  "dependencies": {
-    "@repo/config": "workspace:*",
-    "@effect/platform-bun": "catalog:",
-    "effect": "catalog:"
+  "peerDependencies": {
+    "effect": "^4.1.0"
   },
   "devDependencies": {
+    "@repo/config": "workspace:*",
+    "effect": "catalog:",
+    "tsdown": "catalog:",
     "tsrs": "catalog:"
   }
 }

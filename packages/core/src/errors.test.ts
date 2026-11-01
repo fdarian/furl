@@ -4,8 +4,7 @@ import {
   AllResolversFailed,
   describeCause,
   FetchError,
-  KeychainError,
-  PluginLoadError,
+  NoProviderKey,
   ProviderError,
   redactUrlUserInfo,
 } from './errors.ts';
@@ -54,19 +53,10 @@ describe('error messages', () => {
     expect(error.message).toBe('jina request failed: Unexpected status 429');
   });
 
-  it('describes a KeychainError', () => {
-    const error = new KeychainError({ cause: new Error('locked') });
+  it('describes a NoProviderKey without mentioning the CLI', () => {
+    const error = new NoProviderKey({ provider: 'exa' });
 
-    expect(error.message).toBe('Keychain access failed: locked');
-  });
-
-  it('describes a PluginLoadError as "path: cause"', () => {
-    const error = new PluginLoadError({
-      path: '/plugins/x',
-      cause: new Error('no entrypoint'),
-    });
-
-    expect(error.message).toBe('/plugins/x: no entrypoint');
+    expect(error.message).toBe('No API key configured for exa.');
   });
 
   it('shows a nested tagged error in AllResolversFailed', () => {
