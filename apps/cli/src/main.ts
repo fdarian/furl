@@ -1,6 +1,9 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from '@effect/platform-bun';
+import { Effect, Layer } from 'effect';
+import { Command } from 'effect/cli';
+import { FetchHttpClient } from 'effect/http';
 import {
   FurlConfigServiceLive,
   FurlLive,
@@ -8,10 +11,7 @@ import {
   PluginLoader,
   PluginManager,
   SecretsLive,
-} from '@furl/core';
-import { Effect, Layer } from 'effect';
-import { Command } from 'effect/cli';
-import { FetchHttpClient } from 'effect/http';
+} from 'furl-lib';
 import packageJson from '../package.json';
 import { rootCommand } from './commands/root';
 

@@ -1,6 +1,6 @@
-import { Secrets, setGenericSecret } from '@furl/core';
 import { Console, Effect, Redacted } from 'effect';
 import { Argument, Command, Prompt } from 'effect/cli';
+import { Secrets, setGenericSecret } from 'furl-lib';
 
 const secretNameArgument = Argument.String('name').pipe(
   Argument.withDescription(

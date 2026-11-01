@@ -199,15 +199,15 @@ importers:
       '@effect/platform-bun':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)
-      '@furl/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@repo/config':
         specifier: workspace:*
         version: link:../../packages/config
       effect:
         specifier: 'catalog:'
         version: 4.1.1
+      furl-lib:
+        specifier: workspace:*
+        version: link:../../packages/core
       tsrs:
         specifier: 'catalog:'
         version: 0.18.0-ts7.1.0-dev.20260929

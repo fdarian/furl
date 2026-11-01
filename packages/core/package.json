@@ -1,5 +1,5 @@
 {
-  "name": "@furl/core",
+  "name": "furl-lib",
   "version": "0.0.0",
   "description": "Fetch any URL as markdown with a pluggable resolver chain. Bun-only, ships TypeScript source.",
   "license": "Apache-2.0",

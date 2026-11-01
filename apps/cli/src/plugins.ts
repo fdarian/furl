@@ -5,5 +5,5 @@ export type {
   PluginManifest,
   PluginResolveResult,
   ResolveContext,
-} from '@furl/core/plugins';
-export { definePlugin } from '@furl/core/plugins';
+} from 'furl-lib/plugins';
+export { definePlugin } from 'furl-lib/plugins';

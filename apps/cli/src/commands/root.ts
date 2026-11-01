@@ -1,6 +1,6 @@
-import { Furl, FurlConfigService } from '@furl/core';
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
+import { Furl, FurlConfigService } from 'furl-lib';
 import { pluginsCommand } from './plugins/root';
 import { providersCommand, warnLegacyProvider } from './providers';
 import { secretsCommand } from './secrets/root';

@@ -3,7 +3,7 @@ title: Errors
 description: The failures a fetch can end in, and how to handle one
 ---
 
-`furl.fetch` fails with a `FurlError`, a union of four tagged errors, all exported from `@furl/core`:
+`furl.fetch` fails with a `FurlError`, a union of four tagged errors, all exported from `furl-lib`:
 
 | Tag | Raised when |
 |---|---|
@@ -20,7 +20,7 @@ Each error carries a `_tag`, so `Effect.catchTag` handles one and leaves the oth
 
 ```ts
 import { BunServices } from '@effect/platform-bun';
-import { Furl, FurlLive } from '@furl/core';
+import { Furl, FurlLive } from 'furl-lib';
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 

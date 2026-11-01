@@ -1,4 +1,4 @@
-# @furl/core
+# furl-lib
 
 - Purpose: Fetch-to-markdown engine and provider integrations for `furl`.
 - Stack: Effect v4, `effect/http`, Bun keychain + filesystem services.

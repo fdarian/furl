@@ -1,11 +1,11 @@
+import { Console, Effect } from 'effect';
+import { Command } from 'effect/cli';
 import {
   FurlConfigService,
   getPluginsDirectoryPath,
   PluginDiscovery,
   pluginOrderToken,
-} from '@furl/core';
-import { Console, Effect } from 'effect';
-import { Command } from 'effect/cli';
+} from 'furl-lib';
 
 export const formatPluginLine = (
   name: string,

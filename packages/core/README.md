@@ -1,4 +1,4 @@
-# @furl/core
+# furl-lib
 
 Fetch any URL as markdown, through a pluggable chain of resolvers. Built on [Effect](https://effect.website). The engine behind the [`furl`](https://www.npmjs.com/package/furl-cli) CLI.
 
@@ -7,16 +7,16 @@ Bun only: the package ships TypeScript source and uses `Bun.secrets` (Bun 1.2.21
 ## Install
 
 ```sh
-bun add @furl/core effect @effect/platform-bun
+bun add furl-lib effect @effect/platform-bun
 ```
 
-`effect` is a peer dependency, so your app and `@furl/core` share one Effect runtime. `@effect/platform-bun` must match your `effect` version.
+`effect` is a peer dependency, so your app and `furl-lib` share one Effect runtime. `@effect/platform-bun` must match your `effect` version.
 
 ## Usage
 
 ```ts
 import { BunServices } from '@effect/platform-bun';
-import { Furl, FurlLive } from '@furl/core';
+import { Furl, FurlLive } from 'furl-lib';
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 

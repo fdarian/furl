@@ -1,9 +1,12 @@
+import type { Terminal } from 'effect';
+import { Console, Effect, Option, Redacted } from 'effect';
+import { Prompt } from 'effect/cli';
 import type {
   ConfigField,
   DiscoveredPlugin,
   InvalidSecretError,
   KeychainError,
-} from '@furl/core';
+} from 'furl-lib';
 import {
   FurlConfigService,
   getGenericSecret,
@@ -13,10 +16,7 @@ import {
   secretNameFor,
   secretReferencePrefix,
   setGenericSecret,
-} from '@furl/core';
-import type { Terminal } from 'effect';
-import { Console, Effect, Option, Redacted } from 'effect';
-import { Prompt } from 'effect/cli';
+} from 'furl-lib';
 import {
   enumChoices,
   fieldMessage,

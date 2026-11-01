@@ -1,13 +1,13 @@
-import type { FurlConfig, ProviderName } from '@furl/core';
+import { Console, Effect, Option, Redacted } from 'effect';
+import { Command, Prompt } from 'effect/cli';
+import type { FurlConfig, ProviderName } from 'furl-lib';
 import {
   FurlConfigService,
   insertProviderToken,
   providerOrderToken,
   removeProviderToken,
   Secrets,
-} from '@furl/core';
-import { Console, Effect, Option, Redacted } from 'effect';
-import { Command, Prompt } from 'effect/cli';
+} from 'furl-lib';
 
 export const warnLegacyProvider = (config: FurlConfig) => {
   if (config.provider === undefined) {
