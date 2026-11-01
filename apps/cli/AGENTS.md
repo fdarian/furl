@@ -10,7 +10,7 @@
   - `bun run src/main.ts <url>`
 - Builds the resolver list and hands it to `furl-lib` (`Furl.fetch(url, { resolvers })`): `default:*` tokens expand to the `furl-lib` built-ins under ids like `default:raw`, plugins become `plugin:<name>`, and provider keys come from env first, then the keychain.
 - Key files:
-  - `src/main.ts` (layers: `Furl.layer()` plus Bun services)
+  - `src/main.ts` (Bun services, config, secrets and plugin layers; `Furl` needs no layer)
   - `src/commands/root.ts` (the fetch command)
   - `src/plugin/*` (`load-resolvers.ts` turns the order into resolvers and discovers plugins only when the order names one; also discovery, loader, manager, order parsing, `default-resolvers.ts`)
   - `src/config-service.ts`, `src/secrets-service.ts`, `src/errors.ts`

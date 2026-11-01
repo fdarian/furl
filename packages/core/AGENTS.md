@@ -1,9 +1,9 @@
 # furl-lib
 
 - Purpose: runtime-agnostic fetch-to-markdown engine, published as `furl-lib`. It reads no files, keychain or config and uses no Bun API: callers pass resolver objects in. Config, order tokens (`default:*`), plugins and secrets belong to `apps/cli`.
-- Stack: Effect v4, `effect/http`. HTTP goes through the `HttpClient` the caller provides.
+- Stack: Effect v4, `effect/http`. `Furl` is a `Context.Reference`, so `Furl.fetch(url)` works with no layer: the default value runs `Resolvers.defaults` over the global-fetch `HttpClient`. `Furl.layer({ resolvers })` changes the list and uses an `HttpClient` from the context it is built in, else global fetch; it has no requirements. Resolvers' `run` still requires `HttpClient`; the service provides it.
 - Key files:
-  - `src/furl.ts` (`Furl` service, `Furl.layer`, `Furl.fetch`, `FurlError`)
+  - `src/furl.ts` (`Furl` reference, `Furl.layer`, `Furl.fetch`, `FurlError`)
   - `src/resolver.ts` (`Resolver` type, `ResolveSuccess` / `ResolveDecline`)
   - `src/resolvers.ts` (`Resolvers.*`: `raw`, `direct`, `mdSuffix`, `defaults`, `jina`, `exa`, `firecrawl`)
   - `src/engine.ts` (runs the list, skips resolvers whose `match` fails, collects `ResolverError`s)

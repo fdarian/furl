@@ -22,16 +22,10 @@ npm i furl-lib effect
 ## First fetch
 
 ```ts
-import { Furl, Resolvers } from 'furl-lib';
-import { Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { Furl } from 'furl-lib';
+import { Effect } from 'effect';
 
-const layer = Furl.layer({ resolvers: Resolvers.defaults }).pipe(
-  Layer.provide(FetchHttpClient.layer),
-);
-const result = await Effect.runPromise(
-  Furl.fetch('https://bun.sh/docs.md').pipe(Effect.provide(layer)),
-);
+const result = await Effect.runPromise(Furl.fetch('https://bun.sh/docs.md'));
 console.log(result.source);
 console.log(result.markdown.split('\n')[0]);
 ```
@@ -42,9 +36,9 @@ raw
 # Welcome to Bun
 ```
 
-`Furl.layer` builds the `Furl` service from a list of resolvers. The service makes its requests through an HTTP client, which you provide; `FetchHttpClient.layer` uses the runtime's global `fetch`. `Furl.fetch(url)` is a shortcut for getting the service and calling its `fetch`, so inside an Effect program you can `yield*` it directly and provide the layer once at the edge.
+There is nothing to set up. `Furl.fetch` runs the three keyless `Resolvers.defaults` over the runtime's global `fetch`, so it works the moment `effect` is installed. Inside an Effect program, `yield* Furl` gives you the same service to call `fetch` on.
 
-`Resolvers.defaults` is already the layer's default, so `Furl.layer()` is the same thing. It is spelled out here because [Resolvers](/library/resolvers) is where you change it.
+To run a different list of resolvers, add a provider such as `jina`, or use your own HTTP client, provide `Furl.layer` as shown on [Resolvers](/library/resolvers).
 
 ### The result
 

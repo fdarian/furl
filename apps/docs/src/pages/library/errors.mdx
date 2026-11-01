@@ -19,12 +19,11 @@ Each error carries a `_tag`, so `Effect.catchTag` handles one and leaves the oth
 
 ```ts
 import { Furl, Resolvers } from 'furl-lib';
-import { Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { Effect } from 'effect';
 
 const layer = Furl.layer({
   resolvers: [...Resolvers.defaults, Resolvers.exa()],
-}).pipe(Layer.provide(FetchHttpClient.layer));
+});
 
 const program = Furl.fetch('https://example.com/').pipe(
   Effect.map((result) => result.markdown),
