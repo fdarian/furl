@@ -1,0 +1,53 @@
+---
+title: Errors
+description: The failures a fetch can end in, and how to handle one
+---
+
+`furl.fetch` fails with a `FurlError`, a union of four tagged errors, all exported from `@furl/core`:
+
+| Tag | Raised when |
+|---|---|
+| `AllResolversFailed` | Every resolver either failed or declined. `url` is the address and `failures` lists `{ id, cause }` for each resolver that failed. A decline isn't a failure, so the list can be empty |
+| `ConfigError` | The config file can't be read or parsed, or the resolver order is invalid: an empty `resolvers` list, or a token that isn't `default:*`, `default:<name>` or `plugin:<name>` |
+| `FetchError` | The URL can't be parsed |
+| `PluginLoadError` | A `plugin:<name>` entry names a plugin that isn't installed or won't load. `path` is the plugin folder |
+
+Failures from a single resolver, such as a transport error or a missing API key, don't surface on their own. They are collected into `AllResolversFailed.failures` if nothing else succeeds.
+
+## Handling one
+
+Each error carries a `_tag`, so `Effect.catchTag` handles one and leaves the others in the error type:
+
+```ts
+import { BunServices } from '@effect/platform-bun';
+import { Furl, FurlLive } from '@furl/core';
+import { Effect, Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
+
+const layer = FurlLive.pipe(
+  Layer.provide(Layer.mergeAll(BunServices.layer, FetchHttpClient.layer)),
+);
+
+const program = Effect.gen(function* () {
+  const furl = yield* Furl;
+  return yield* furl.fetch('https://example.invalid/page.md', {
+    resolvers: ['default:raw'],
+  });
+}).pipe(
+  Effect.map((result) => result.markdown),
+  Effect.catchTag('AllResolversFailed', (error) =>
+    Effect.succeed(
+      `No markdown for ${error.url}. Tried: ${error.failures.map((failure) => failure.id).join(', ')}`,
+    ),
+  ),
+);
+
+console.log(await Effect.runPromise(program.pipe(Effect.provide(layer))));
+```
+
+Output:
+```text
+No markdown for https://example.invalid/page.md. Tried: default:raw
+```
+
+After the `catchTag`, `program` can still fail with `ConfigError`, `FetchError` or `PluginLoadError`. Every error also has a readable `message`.

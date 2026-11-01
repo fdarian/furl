@@ -1,0 +1,66 @@
+---
+title: Getting started
+description: Fetch a URL as markdown from your own Bun code
+---
+
+`@furl/core` is the engine behind the `furl` CLI, packaged as an [Effect](https://effect.website) library. Give it a URL and it walks the same [resolver chain](/fetch-strategy), returning markdown from the first resolver that can produce it. Use it when your agent or app needs that in-process instead of shelling out to `furl`.
+
+## Requirements
+
+Bun 1.2.21 or newer (`engines.bun >=1.2.21`). The package ships TypeScript source and uses Bun APIs, such as `Bun.secrets` for the keychain, so Node isn't supported.
+
+## Install
+
+```sh
+bun add @furl/core effect @effect/platform-bun
+```
+
+`effect` is a peer dependency, so your app and `@furl/core` share one Effect runtime. `@effect/platform-bun` must match your `effect` version.
+
+## First fetch
+
+```ts
+import { BunServices } from '@effect/platform-bun';
+import { Furl, FurlLive } from '@furl/core';
+import { Effect, Layer } from 'effect';
+import { FetchHttpClient } from 'effect/http';
+
+const layer = FurlLive.pipe(
+  Layer.provide(Layer.mergeAll(BunServices.layer, FetchHttpClient.layer)),
+);
+
+const program = Effect.gen(function* () {
+  const furl = yield* Furl;
+  return yield* furl.fetch('https://bun.sh/docs.md', {
+    resolvers: ['default:*'],
+  });
+});
+
+const result = await Effect.runPromise(program.pipe(Effect.provide(layer)));
+console.log(result.source);
+console.log(result.markdown.split('\n')[0]);
+```
+
+Output:
+```text
+default:raw
+# Welcome to Bun
+```
+
+`Furl` is the service; `FurlLive` is its implementation. `FurlLive` reads the furl config from disk and makes HTTP requests, so it needs the Bun platform services and an HTTP client, which `BunServices.layer` and `FetchHttpClient.layer` provide.
+
+### The result
+
+`furl.fetch` succeeds with `{ markdown, source }`:
+
+| Field | Meaning |
+|---|---|
+| `markdown` | The page as markdown |
+| `source` | The order token of the resolver that produced it, such as `default:raw` or `plugin:x`. It's the same value the CLI prints after `↳ via` |
+
+The example sets `resolvers` so the run doesn't depend on whatever order is in `~/.config/furl/config.json` on the machine it runs on. Without it, the config file decides; see [Resolvers](/library/resolvers).
+
+## Next steps
+
+- [Resolvers](/library/resolvers) — choose which resolvers run, and where API provider keys come from.
+- [Errors](/library/errors) — handle the ways a fetch can fail.

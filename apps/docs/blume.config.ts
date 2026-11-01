@@ -11,6 +11,14 @@ export default defineConfig(
       sources: [filesystem({ root: 'src/pages' })],
     },
     navigation: {
+      tabs: [
+        { label: 'CLI', path: '/' },
+        {
+          label: 'Library',
+          path: '/library',
+          href: '/library/getting-started',
+        },
+      ],
       sidebar: [
         {
           label: 'Introduction',
@@ -33,6 +41,16 @@ export default defineConfig(
               ],
             },
             { label: 'Create your own', href: '/plugins/create-your-own' },
+          ],
+        },
+        {
+          label: 'Library',
+          root: '/library',
+          directory: 'card',
+          items: [
+            { label: 'Getting started', href: '/library/getting-started' },
+            { label: 'Resolvers', href: '/library/resolvers' },
+            { label: 'Errors', href: '/library/errors' },
           ],
         },
       ],

@@ -1,0 +1,46 @@
+---
+title: Resolvers
+description: Choose which resolvers a fetch runs, and where provider keys come from
+---
+
+A fetch runs an ordered list of resolvers and returns the first success. The library takes that list from the same place the CLI does, and lets you replace it per call.
+
+## The config file
+
+Without `resolvers`, `furl.fetch(url)` reads `order` from `~/.config/furl/config.json`. If the file or its `order` is missing, the order is `["default:*"]`. Reading the path needs `HOME` set; if it isn't, the fetch fails with a `ConfigError`.
+
+That makes a library call behave like `furl <url>` on the same machine. See [Fetch strategy](/fetch-strategy#configuring-the-order) for what the default chain does and how to edit the file, and [Plugins](/plugins/getting-started#how-its-written-in-the-config) for `plugin:` entries and their config.
+
+## Overriding per call
+
+`resolvers` replaces the configured order for that one call. Nothing is merged with the config file's `order`.
+
+```ts
+furl.fetch('https://example.com/post', {
+  resolvers: ['plugin:x', 'default:*', 'default:exa'],
+});
+```
+
+Resolvers are tried left to right, and the first success wins. Each entry is one of three token forms:
+
+| Token | Runs |
+|---|---|
+| `default:*` | The keyless probes, `raw`, `direct` and `md-suffix`, in that order. Providers aren't included |
+| `default:<name>` | One built-in: `raw`, `direct`, `md-suffix`, `jina`, `firecrawl` or `exa` |
+| `plugin:<name>` | The plugin installed at `~/.config/furl/plugins/<name>` |
+
+A resolver listed twice runs once, and a plugin whose `match` doesn't fit the URL is skipped. An override still takes a plugin's settings from the `plugins` section of the config file.
+
+An empty list, an unknown `default:` name, or a token in none of these forms fails with a `ConfigError`. A `plugin:` entry that isn't installed fails with a `PluginLoadError`. See [Errors](/library/errors).
+
+## API provider keys
+
+`jina`, `firecrawl` and `exa` call a third-party API. Each looks for its key in the environment first, then in the keychain entry saved by `furl providers`:
+
+| Provider | Environment variable | Key |
+|---|---|---|
+| `jina` | `JINA_API_KEY` | Optional; raises the rate limit |
+| `firecrawl` | `FIRECRAWL_API_KEY` | Required |
+| `exa` | `EXA_API_KEY` | Required |
+
+The library never prompts for a key. A resolver whose key is missing fails and the chain moves on, so the miss only reaches you if every resolver fails; see [Errors](/library/errors). The [builtins](/plugins/builtins/exa) pages cover what each provider returns.
