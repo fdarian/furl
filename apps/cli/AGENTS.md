@@ -8,6 +8,11 @@
   - `furl secrets set <name>` stores a keychain secret that plugin config references as `"secret:<name>"`
 - Dev command:
   - `bun run src/main.ts <url>`
+- Builds the resolver list and hands it to `furl-lib` (`Furl.fetch(url, { resolvers })`): `default:*` tokens expand to the `furl-lib` built-ins under ids like `default:raw`, plugins become `plugin:<name>`, and provider keys come from env first, then the keychain.
 - Key files:
-  - `src/main.ts`
+  - `src/main.ts` (layers: `Furl.layer()` plus Bun services)
+  - `src/commands/root.ts` (the fetch command)
+  - `src/plugin/*` (`load-resolvers.ts` turns the order into resolvers and discovers plugins only when the order names one; also discovery, loader, manager, order parsing, `default-resolvers.ts`)
+  - `src/config-service.ts`, `src/secrets-service.ts`, `src/errors.ts`
+  - `src/plugins.ts` (the `furl-cli/plugins` surface; imports nothing so plugin authors need no other package)
   - `package.json`
