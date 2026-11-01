@@ -1,38 +1,28 @@
 import { describe, expect, it } from 'bun:test';
-import { Effect } from 'effect';
-
-import { FetchError, NoProviderKey, ResolverError } from '../../errors.ts';
+import { ConfigProvider, Effect, Option } from 'effect';
+import { HttpClient, HttpClientResponse } from 'effect/http';
 
 import { runResolvers } from '../engine.ts';
-import {
-  makeHttpClientStub,
-  makeResolverStub,
-  makeSecretsStub,
-} from '../test-doubles.ts';
-import { ResolveDecline, ResolveSuccess } from '../types.ts';
+import { FetchError, NoProviderKey, ResolverError } from '../errors.ts';
+import { ResolveDecline, type Resolver, ResolveSuccess } from '../resolver.ts';
+import { Resolvers } from '../resolvers.ts';
+import { makeHttpClientStub, makeResolverStub } from '../test-doubles.ts';
 
-import { createDefaultResolvers } from './index.ts';
-
-const findResolver = (
-  resolvers: readonly ReturnType<typeof createDefaultResolvers>[number][],
-  id: string,
-) => {
-  const resolver = resolvers.find((candidate) => candidate.id === id);
-  if (resolver === undefined) {
-    throw new Error(`No resolver named "${id}"`);
-  }
-  return resolver;
-};
+/** Binds the stub client so `run` needs no environment. */
+const bind = (resolver: Resolver, client: HttpClient.HttpClient) => ({
+  ...resolver,
+  run: (url: URL) =>
+    resolver
+      .run(url)
+      .pipe(Effect.provideService(HttpClient.HttpClient, client)),
+});
 
 describe('raw', () => {
   it('declines a URL without a file extension without fetching', async () => {
     const client = makeHttpClientStub(() => {
       throw new Error('should not fetch');
     });
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
 
     const outcome = await Effect.runPromise(
       raw.run(new URL('https://example.com/page')),
@@ -45,10 +35,7 @@ describe('raw', () => {
     const client = makeHttpClientStub(
       () => new Response('# raw body', { status: 200 }),
     );
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
 
     const outcome = await Effect.runPromise(
       raw.run(new URL('https://example.com/file.md')),
@@ -61,10 +48,7 @@ describe('raw', () => {
     const client = makeHttpClientStub(
       () => new Response('not found', { status: 404 }),
     );
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
 
     const error = await Effect.runPromise(
       Effect.flip(raw.run(new URL('https://example.com/report.pdf'))),
@@ -82,22 +66,22 @@ describe('raw', () => {
     const client = makeHttpClientStub(
       () => new Response('not found', { status: 404 }),
     );
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
     const fallback = makeResolverStub({
       id: 'fallback',
       run: () => Effect.succeed(new ResolveSuccess({ markdown: '# fallback' })),
     });
 
     const result = await Effect.runPromise(
-      runResolvers(new URL('https://example.com/page.html'), [raw, fallback]),
+      runResolvers(new URL('https://example.com/page.html'), [
+        raw,
+        fallback,
+      ]).pipe(Effect.provideService(HttpClient.HttpClient, client)),
     );
 
     expect(result).toEqual({
       markdown: '# fallback',
-      source: 'plugin:fallback',
+      source: 'fallback',
     });
   });
 
@@ -105,19 +89,18 @@ describe('raw', () => {
     const client = makeHttpClientStub(
       () => new Response('not found', { status: 404 }),
     );
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
 
     const error = await Effect.runPromise(
       Effect.flip(
-        runResolvers(new URL('https://example.com/report.pdf'), [raw]),
+        runResolvers(new URL('https://example.com/report.pdf'), [raw]).pipe(
+          Effect.provideService(HttpClient.HttpClient, client),
+        ),
       ),
     );
 
     expect(error._tag).toBe('AllResolversFailed');
-    expect(error.message).toContain('default:raw');
+    expect(error.message).toContain('raw');
     expect(error.message).toContain('status 404');
   });
 
@@ -129,10 +112,7 @@ describe('raw', () => {
           headers: { 'content-type': 'text/html; charset=utf-8' },
         }),
     );
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
 
     const outcome = await Effect.runPromise(
       raw.run(new URL('https://en.wikipedia.org/wiki/Node.js')),
@@ -149,10 +129,7 @@ describe('raw', () => {
           headers: { 'content-type': 'application/json' },
         }),
     );
-    const raw = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'raw',
-    );
+    const raw = bind(Resolvers.raw, client);
 
     const outcome = await Effect.runPromise(
       raw.run(new URL('https://example.com/data.json')),
@@ -171,10 +148,7 @@ describe('direct', () => {
           headers: { 'content-type': 'text/html' },
         }),
     );
-    const direct = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'direct',
-    );
+    const direct = bind(Resolvers.direct, client);
 
     const outcome = await Effect.runPromise(
       direct.run(new URL('https://example.com/page')),
@@ -191,10 +165,7 @@ describe('direct', () => {
           headers: { 'content-type': 'text/markdown' },
         }),
     );
-    const direct = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'direct',
-    );
+    const direct = bind(Resolvers.direct, client);
 
     const outcome = await Effect.runPromise(
       direct.run(new URL('https://example.com/page')),
@@ -211,10 +182,7 @@ describe('direct', () => {
           headers: { 'content-type': 'text/markdown' },
         }),
     );
-    const direct = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'direct',
-    );
+    const direct = bind(Resolvers.direct, client);
 
     const outcome = await Effect.runPromise(
       direct.run(new URL('https://example.com/page')),
@@ -227,10 +195,7 @@ describe('direct', () => {
     const client = makeHttpClientStub(() => {
       throw new Error('network down');
     });
-    const direct = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'direct',
-    );
+    const direct = bind(Resolvers.direct, client);
 
     const error = await Effect.runPromise(
       Effect.flip(direct.run(new URL('https://example.com/page'))),
@@ -255,10 +220,7 @@ describe('direct', () => {
           headers: { 'content-type': 'text/markdown' },
         }),
     );
-    const direct = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'direct',
-    );
+    const direct = bind(Resolvers.direct, client);
 
     const error = await Effect.runPromise(
       Effect.flip(direct.run(new URL('https://example.com/page'))),
@@ -279,10 +241,7 @@ describe('md-suffix', () => {
         headers: { 'content-type': 'text/markdown' },
       });
     });
-    const mdSuffix = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'md-suffix',
-    );
+    const mdSuffix = bind(Resolvers.mdSuffix, client);
 
     const outcome = await Effect.runPromise(
       mdSuffix.run(new URL('https://example.com/page')),
@@ -296,10 +255,7 @@ describe('md-suffix', () => {
     const client = makeHttpClientStub(() => {
       throw new Error('network down');
     });
-    const mdSuffix = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'md-suffix',
-    );
+    const mdSuffix = bind(Resolvers.mdSuffix, client);
 
     const error = await Effect.runPromise(
       Effect.flip(mdSuffix.run(new URL('https://example.com/page'))),
@@ -316,10 +272,7 @@ describe('md-suffix', () => {
     const client = makeHttpClientStub(
       () => new Response('missing', { status: 404 }),
     );
-    const mdSuffix = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'md-suffix',
-    );
+    const mdSuffix = bind(Resolvers.mdSuffix, client);
 
     const outcome = await Effect.runPromise(
       mdSuffix.run(new URL('https://example.com/page')),
@@ -329,89 +282,185 @@ describe('md-suffix', () => {
   });
 });
 
-describe('provider resolvers', () => {
-  it('wraps a missing Exa key without making an API request', async () => {
-    const originalKey = process.env.EXA_API_KEY;
-    delete process.env.EXA_API_KEY;
-    try {
-      const client = makeHttpClientStub(() => {
-        throw new Error('should not fetch');
+const noEnv = ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }));
+
+/** Echoes the request headers and URL so key placement can be asserted. */
+const recordingClient = (
+  requests: { url: string; headers: Readonly<Record<string, string>> }[],
+) =>
+  HttpClient.make((request) =>
+    Effect.sync(() => {
+      requests.push({
+        url: request.url,
+        headers: request.headers,
       });
-      const exa = findResolver(
-        createDefaultResolvers(client, makeSecretsStub()),
-        'exa',
+      return HttpClientResponse.fromWeb(
+        request,
+        new Response(
+          JSON.stringify({
+            results: [{ text: '# via exa' }],
+            data: { markdown: '# via firecrawl' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
       );
+    }),
+  );
 
-      const error = await Effect.runPromise(
-        Effect.flip(exa.run(new URL('https://example.com/page'))),
-      );
+describe('provider resolvers', () => {
+  const url = new URL('https://example.com/page');
 
-      expect(error._tag).toBe('ResolverError');
-      expect(error.cause).toBeInstanceOf(NoProviderKey);
-    } finally {
-      if (originalKey === undefined) {
-        delete process.env.EXA_API_KEY;
-      } else {
-        process.env.EXA_API_KEY = originalKey;
-      }
-    }
+  it('fails an Exa run without a key as NoProviderKey, without making a request', async () => {
+    const client = makeHttpClientStub(() => {
+      throw new Error('should not fetch');
+    });
+    const exa = bind(Resolvers.exa(), client);
+
+    const error = await Effect.runPromise(
+      Effect.flip(exa.run(url)).pipe(Effect.provide(noEnv)),
+    );
+
+    expect(error._tag).toBe('ResolverError');
+    expect(error.cause).toBeInstanceOf(NoProviderKey);
+  });
+
+  it('fails a Firecrawl run without a key as NoProviderKey, without making a request', async () => {
+    const client = makeHttpClientStub(() => {
+      throw new Error('should not fetch');
+    });
+    const firecrawl = bind(Resolvers.firecrawl(), client);
+
+    const error = await Effect.runPromise(
+      Effect.flip(firecrawl.run(url)).pipe(Effect.provide(noEnv)),
+    );
+
+    expect(error._tag).toBe('ResolverError');
+    expect(error.cause).toBeInstanceOf(NoProviderKey);
+  });
+
+  it('reads the provider environment variable when apiKey is omitted', async () => {
+    const requests: {
+      url: string;
+      headers: Readonly<Record<string, string>>;
+    }[] = [];
+    const exa = bind(Resolvers.exa(), recordingClient(requests));
+    const env = ConfigProvider.layer(
+      ConfigProvider.fromEnv({ env: { EXA_API_KEY: 'env-key' } }),
+    );
+
+    const outcome = await Effect.runPromise(
+      exa.run(url).pipe(Effect.provide(env)),
+    );
+
+    expect(outcome).toEqual(new ResolveSuccess({ markdown: '# via exa' }));
+    expect(requests[0]?.headers['x-api-key']).toBe('env-key');
+  });
+
+  it('sends a literal apiKey', async () => {
+    const requests: {
+      url: string;
+      headers: Readonly<Record<string, string>>;
+    }[] = [];
+    const firecrawl = bind(
+      Resolvers.firecrawl({ apiKey: 'abc' }),
+      recordingClient(requests),
+    );
+
+    const outcome = await Effect.runPromise(firecrawl.run(url));
+
+    expect(outcome).toEqual(
+      new ResolveSuccess({ markdown: '# via firecrawl' }),
+    );
+    expect(requests[0]?.headers.authorization).toBe('Bearer abc');
+  });
+
+  it('evaluates an apiKey effect on every run', async () => {
+    const requests: {
+      url: string;
+      headers: Readonly<Record<string, string>>;
+    }[] = [];
+    let calls = 0;
+    const exa = bind(
+      Resolvers.exa({
+        apiKey: Effect.sync(() => {
+          calls += 1;
+          return Option.some(`key-${calls}`);
+        }),
+      }),
+      recordingClient(requests),
+    );
+
+    await Effect.runPromise(exa.run(url));
+    await Effect.runPromise(exa.run(url));
+
+    expect(requests.map((request) => request.headers['x-api-key'])).toEqual([
+      'key-1',
+      'key-2',
+    ]);
+  });
+
+  it('treats a None apiKey as NoProviderKey for Exa', async () => {
+    const client = makeHttpClientStub(() => {
+      throw new Error('should not fetch');
+    });
+    const exa = bind(
+      Resolvers.exa({ apiKey: Effect.succeed(Option.none()) }),
+      client,
+    );
+
+    const error = await Effect.runPromise(Effect.flip(exa.run(url)));
+
+    expect(error.cause).toBeInstanceOf(NoProviderKey);
+  });
+
+  it('treats a None apiKey as keyless for Jina', async () => {
+    const requests: {
+      url: string;
+      headers: Readonly<Record<string, string>>;
+    }[] = [];
+    const jina = bind(
+      Resolvers.jina({ apiKey: Effect.succeed(Option.none()) }),
+      recordingClient(requests),
+    );
+
+    await Effect.runPromise(jina.run(url));
+
+    expect(requests[0]?.headers.authorization).toBeUndefined();
+  });
+
+  it('surfaces a failing apiKey effect as the ResolverError cause', async () => {
+    const client = makeHttpClientStub(() => {
+      throw new Error('should not fetch');
+    });
+    const cause = new Error('keychain locked');
+    const exa = bind(Resolvers.exa({ apiKey: Effect.fail(cause) }), client);
+
+    const error = await Effect.runPromise(Effect.flip(exa.run(url)));
+
+    expect(error).toBeInstanceOf(ResolverError);
+    expect(error.cause).toBe(cause);
   });
 
   it('wraps an Exa API failure as a ResolverError', async () => {
     const client = makeHttpClientStub(
       () => new Response('server error', { status: 500 }),
     );
-    const exa = findResolver(
-      createDefaultResolvers(client, makeSecretsStub({ exa: 'test-key' })),
-      'exa',
-    );
+    const exa = bind(Resolvers.exa({ apiKey: 'test-key' }), client);
 
-    const error = await Effect.runPromise(
-      Effect.flip(exa.run(new URL('https://example.com/page'))),
-    );
+    const error = await Effect.runPromise(Effect.flip(exa.run(url)));
 
     expect(error).toBeInstanceOf(ResolverError);
     expect(error).toMatchObject({ id: 'exa' });
-  });
-
-  it('wraps a missing Firecrawl key without making an API request', async () => {
-    const originalKey = process.env.FIRECRAWL_API_KEY;
-    delete process.env.FIRECRAWL_API_KEY;
-    try {
-      const client = makeHttpClientStub(() => {
-        throw new Error('should not fetch');
-      });
-      const firecrawl = findResolver(
-        createDefaultResolvers(client, makeSecretsStub()),
-        'firecrawl',
-      );
-
-      const error = await Effect.runPromise(
-        Effect.flip(firecrawl.run(new URL('https://example.com/page'))),
-      );
-
-      expect(error._tag).toBe('ResolverError');
-      expect(error.cause).toBeInstanceOf(NoProviderKey);
-    } finally {
-      if (originalKey === undefined) {
-        delete process.env.FIRECRAWL_API_KEY;
-      } else {
-        process.env.FIRECRAWL_API_KEY = originalKey;
-      }
-    }
   });
 
   it('reports Jina HTTP failures as ResolverError', async () => {
     const client = makeHttpClientStub(
       () => new Response('rate limited', { status: 429 }),
     );
-    const jina = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'jina',
-    );
+    const jina = bind(Resolvers.jina(), client);
 
     const error = await Effect.runPromise(
-      Effect.flip(jina.run(new URL('https://example.com/page'))),
+      Effect.flip(jina.run(url)).pipe(Effect.provide(noEnv)),
     );
 
     expect(error).toBeInstanceOf(ResolverError);
@@ -422,13 +471,10 @@ describe('provider resolvers', () => {
     const client = makeHttpClientStub(
       () => new Response('# via jina', { status: 200 }),
     );
-    const jina = findResolver(
-      createDefaultResolvers(client, makeSecretsStub()),
-      'jina',
-    );
+    const jina = bind(Resolvers.jina(), client);
 
     const outcome = await Effect.runPromise(
-      jina.run(new URL('https://example.com/page')),
+      jina.run(url).pipe(Effect.provide(noEnv)),
     );
 
     expect(outcome).toEqual(new ResolveSuccess({ markdown: '# via jina' }));

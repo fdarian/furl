@@ -1,26 +1,20 @@
 import { Effect, Option } from 'effect';
 
-import { ResolverError } from '../../errors.ts';
-
-import type { Resolver } from '../resolver.ts';
+import { ResolverError } from '../errors.ts';
 import {
   ResolveDecline,
   type ResolveOutcome,
+  type Resolver,
   ResolveSuccess,
-} from '../types.ts';
+} from '../resolver.ts';
 
-import {
-  appendMarkdownSuffix,
-  type HttpClientService,
-  tryDirectMarkdownFetch,
-} from './shared.ts';
+import { appendMarkdownSuffix, tryDirectMarkdownFetch } from './shared.ts';
 
-export const mdSuffixResolver = (client: HttpClientService): Resolver => ({
+export const mdSuffixResolver: Resolver = {
   id: 'md-suffix',
-  isDefault: true,
   match: null,
   run: (url) =>
-    tryDirectMarkdownFetch(client, appendMarkdownSuffix(url.toString())).pipe(
+    tryDirectMarkdownFetch(appendMarkdownSuffix(url.toString())).pipe(
       Effect.map(
         (result): ResolveOutcome =>
           Option.isSome(result)
@@ -31,4 +25,4 @@ export const mdSuffixResolver = (client: HttpClientService): Resolver => ({
         (cause) => new ResolverError({ id: 'md-suffix', cause: cause }),
       ),
     ),
-});
+};

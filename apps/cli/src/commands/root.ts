@@ -1,6 +1,10 @@
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
-import { Furl, FurlConfigService } from 'furl-lib';
+import { Furl } from 'furl-lib';
+import { FurlConfigService } from '../config-service';
+import { PluginDiscovery } from '../plugin/discovery';
+import { loadResolvers } from '../plugin/load-resolvers';
+import { Secrets } from '../secrets-service';
 import { pluginsCommand } from './plugins/root';
 import { providersCommand, warnLegacyProvider } from './providers';
 import { secretsCommand } from './secrets/root';
@@ -48,17 +52,21 @@ export const rootCommand = Command.make(
         return;
       }
 
+      const configService = yield* FurlConfigService;
+
       if (Option.isNone(config.resolvers)) {
-        const configService = yield* FurlConfigService;
         const configValue = yield* configService.read;
         yield* warnLegacyProvider(configValue);
       }
 
-      const furl = yield* Furl;
-      const result = yield* furl.fetch(config.url.value, {
-        resolvers: Option.isSome(config.resolvers)
-          ? config.resolvers.value
-          : undefined,
+      const resolvers = yield* loadResolvers(
+        configService,
+        yield* Secrets,
+        yield* PluginDiscovery,
+        Option.getOrUndefined(config.resolvers),
+      );
+      const result = yield* Furl.fetch(config.url.value, {
+        resolvers: resolvers,
       });
 
       yield* Console.log(result.markdown);

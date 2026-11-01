@@ -1,7 +1,9 @@
 import { Console, Effect, Option } from 'effect';
 import { Argument, Command, Flag, Prompt } from 'effect/cli';
-import type { InstallPreview } from 'furl-lib';
-import { PluginInstallError, PluginManager, redactUrlUserInfo } from 'furl-lib';
+import { redactUrlUserInfo } from 'furl-lib';
+import { PluginInstallError } from '../../errors';
+import type { InstallPreview } from '../../plugin/manager';
+import { PluginManager } from '../../plugin/manager';
 
 const installUrlArgument = Argument.String('url').pipe(
   Argument.withDescription('Git URL of the plugin repository to clone'),

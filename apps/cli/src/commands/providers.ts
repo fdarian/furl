@@ -1,13 +1,14 @@
 import { Console, Effect, Option, Redacted } from 'effect';
 import { Command, Prompt } from 'effect/cli';
-import type { FurlConfig, ProviderName } from 'furl-lib';
+import type { ProviderName } from 'furl-lib';
+import type { FurlConfig } from '../config-service';
+import { FurlConfigService } from '../config-service';
 import {
-  FurlConfigService,
   insertProviderToken,
   providerOrderToken,
   removeProviderToken,
-  Secrets,
-} from 'furl-lib';
+} from '../plugin/order';
+import { Secrets } from '../secrets-service';
 
 export const warnLegacyProvider = (config: FurlConfig) => {
   if (config.provider === undefined) {

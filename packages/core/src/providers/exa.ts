@@ -1,10 +1,14 @@
-import { type Context, Effect, Schema } from 'effect';
-import { type HttpClient, HttpClientRequest } from 'effect/http';
+import { Effect, Schema } from 'effect';
+import { HttpClient, HttpClientRequest } from 'effect/http';
 
-import { FetchError, ProviderError } from '../errors.ts';
-import type { SecretsService } from '../secrets-service.ts';
+import { FetchError, ProviderError, ResolverError } from '../errors.ts';
+import {
+  type ResolveOutcome,
+  type Resolver,
+  ResolveSuccess,
+} from '../resolver.ts';
 
-import { getRequiredProviderKey } from './provider-key.ts';
+import { type ApiKeyOptions, getRequiredProviderKey } from './api-key.ts';
 
 const exaResponseSchema = Schema.Struct({
   results: Schema.Array(
@@ -16,13 +20,13 @@ const exaResponseSchema = Schema.Struct({
 
 const decodeExaResponse = Schema.decodeUnknownEffect(exaResponseSchema);
 
-export const fetchWithExa = (
-  client: Context.Service.Shape<typeof HttpClient.HttpClient>,
-  secrets: SecretsService,
-  url: string,
-) =>
+const fetchWithExa = (options: ApiKeyOptions, url: string) =>
   Effect.gen(function* () {
-    const key = yield* getRequiredProviderKey(secrets, 'exa', 'EXA_API_KEY');
+    const key = yield* getRequiredProviderKey(
+      'exa',
+      'EXA_API_KEY',
+      options.apiKey,
+    );
     const request = yield* HttpClientRequest.post(
       'https://api.exa.ai/contents',
     ).pipe(
@@ -32,8 +36,7 @@ export const fetchWithExa = (
         (cause) => new ProviderError({ provider: 'exa', cause: cause }),
       ),
     );
-    const response = yield* request.pipe(
-      client.execute,
+    const response = yield* HttpClient.execute(request).pipe(
       Effect.mapError(
         (cause) =>
           new FetchError({ url: url, status: undefined, cause: cause }),
@@ -41,12 +44,10 @@ export const fetchWithExa = (
     );
 
     if (response.status < 200 || response.status >= 300) {
-      return yield* Effect.fail(
-        new ProviderError({
-          provider: 'exa',
-          cause: new Error(`Unexpected status ${response.status}`),
-        }),
-      );
+      return yield* new ProviderError({
+        provider: 'exa',
+        cause: new Error(`Unexpected status ${response.status}`),
+      });
     }
 
     const body = yield* response.json.pipe(
@@ -63,22 +64,33 @@ export const fetchWithExa = (
     const firstResult = decoded.results[0];
 
     if (firstResult === undefined) {
-      return yield* Effect.fail(
-        new ProviderError({
-          provider: 'exa',
-          cause: new Error('Exa returned no results'),
-        }),
-      );
+      return yield* new ProviderError({
+        provider: 'exa',
+        cause: new Error('Exa returned no results'),
+      });
     }
 
     if (firstResult.text === undefined) {
-      return yield* Effect.fail(
-        new ProviderError({
-          provider: 'exa',
-          cause: new Error('Exa response is missing results[0].text'),
-        }),
-      );
+      return yield* new ProviderError({
+        provider: 'exa',
+        cause: new Error('Exa response is missing results[0].text'),
+      });
     }
 
     return firstResult.text;
   });
+
+export const exaResolver = (options: ApiKeyOptions = {}): Resolver => ({
+  id: 'exa',
+  match: null,
+  run: (url) =>
+    fetchWithExa(options, url.toString()).pipe(
+      Effect.map(
+        (markdown): ResolveOutcome =>
+          new ResolveSuccess({ markdown: markdown }),
+      ),
+      Effect.mapError(
+        (cause) => new ResolverError({ id: 'exa', cause: cause }),
+      ),
+    ),
+});

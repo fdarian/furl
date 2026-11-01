@@ -34,26 +34,6 @@ export class NoProviderKey extends Schema.TaggedError<NoProviderKey>(
   }
 }
 
-export class KeychainError extends Schema.TaggedError<KeychainError>(
-  'furl/KeychainError',
-)('KeychainError', {
-  cause: Schema.Defect(),
-}) {
-  override get message(): string {
-    return `Keychain access failed: ${describeCause(this.cause)}`;
-  }
-}
-
-export class InvalidSecretError extends Schema.TaggedError<InvalidSecretError>(
-  'furl/InvalidSecretError',
-)('InvalidSecretError', {
-  reason: Schema.String,
-}) {
-  override get message(): string {
-    return this.reason;
-  }
-}
-
 export class ConfigError extends Schema.TaggedError<ConfigError>(
   'furl/ConfigError',
 )('ConfigError', {
@@ -96,49 +76,6 @@ export class AllResolversFailed extends Schema.TaggedError<AllResolversFailed>(
       .join(', ');
 
     return `No resolver could produce markdown for ${this.url}. Tried: ${summary}.`;
-  }
-}
-
-export class PluginLoadError extends Schema.TaggedError<PluginLoadError>(
-  'furl/PluginLoadError',
-)('PluginLoadError', {
-  path: Schema.String,
-  cause: Schema.Defect(),
-}) {
-  override get message(): string {
-    return `${this.path}: ${describeCause(this.cause)}`;
-  }
-}
-
-export class PluginInstallError extends Schema.TaggedError<PluginInstallError>(
-  'furl/PluginInstallError',
-)('PluginInstallError', {
-  url: Schema.String,
-  cause: Schema.Defect(),
-}) {
-  override get message(): string {
-    return `Failed to install plugin from ${redactUrlUserInfo(this.url)}: ${redactUrlUserInfo(describeCause(this.cause))}`;
-  }
-}
-
-export class PluginNotFoundError extends Schema.TaggedError<PluginNotFoundError>(
-  'furl/PluginNotFoundError',
-)('PluginNotFoundError', {
-  name: Schema.String,
-}) {
-  override get message(): string {
-    return `No installed plugin named "${this.name}".`;
-  }
-}
-
-export class PluginUninstallError extends Schema.TaggedError<PluginUninstallError>(
-  'furl/PluginUninstallError',
-)('PluginUninstallError', {
-  name: Schema.String,
-  cause: Schema.Defect(),
-}) {
-  override get message(): string {
-    return `Failed to uninstall plugin "${this.name}": ${describeCause(this.cause)}`;
   }
 }
 

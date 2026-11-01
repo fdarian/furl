@@ -1,27 +1,30 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect, Option } from 'effect';
+import type { Resolver } from 'furl-lib';
+import {
+  ConfigError,
+  describeCause,
+  ResolveDecline,
+  ResolverError,
+  ResolveSuccess,
+} from 'furl-lib';
 
 import type {
   FurlConfigServiceShape,
   PluginConfigValue,
 } from '../config-service.ts';
-import { ConfigError, describeCause, ResolverError } from '../errors.ts';
 import type { DiscoveredPlugin } from './discovery.ts';
-import { runResolvers } from './engine.ts';
 import {
   buildResolverList,
   hasPluginToken,
   insertPluginToken,
   insertProviderToken,
-  matchesUrl,
   parseOrderToken,
   parseOrderTokens,
   removeProviderToken,
   toPluginResolver,
 } from './order.ts';
-import type { Resolver } from './resolver.ts';
-import { makeSecretsStub } from './test-doubles.ts';
-import { ResolveDecline, ResolveSuccess } from './types.ts';
+import { makeSecretsStub, withUnusedHttpClient } from './test-doubles.ts';
 
 const runFail = <A, E>(effect: Effect.Effect<A, E>): Promise<E> =>
   Effect.runPromise(Effect.flip(effect));
@@ -54,8 +57,7 @@ const makePlugin = (
 
 const makeDefaultResolvers = (): Resolver[] =>
   ['raw', 'direct', 'md-suffix', 'jina', 'firecrawl', 'exa'].map((id) => ({
-    id: id,
-    isDefault: true,
+    id: `default:${id}`,
     match: null,
     run: () => Effect.succeed(new ResolveDecline()),
   }));
@@ -155,21 +157,6 @@ describe('removeProviderToken', () => {
   });
 });
 
-describe('matchesUrl', () => {
-  const url = new URL('https://x.com/someone/status/123');
-
-  it('matches any URL for a null pattern', () => {
-    expect(matchesUrl(null, url)).toBe(true);
-  });
-
-  it('matches host and one-segment wildcards', () => {
-    expect(matchesUrl({ hostname: 'x.com', path: '/*/status/*' }, url)).toBe(
-      true,
-    );
-    expect(matchesUrl({ hostname: 'other.com' }, url)).toBe(false);
-  });
-});
-
 describe('parseOrderTokens', () => {
   it('parses every token in order', async () => {
     const tokens = await Effect.runPromise(
@@ -222,7 +209,6 @@ describe('buildResolverList', () => {
       return yield* buildResolverList(
         config,
         options.secrets ?? secrets,
-        url,
         options.defaults ?? defaultResolvers,
         options.plugins ?? [],
         parsedTokens,
@@ -243,9 +229,9 @@ describe('buildResolverList', () => {
     );
 
     expect(result.map((resolver) => resolver.id)).toEqual([
-      'raw',
-      'direct',
-      'md-suffix',
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
     ]);
   });
 
@@ -265,8 +251,10 @@ describe('buildResolverList', () => {
       build(makeConfigStub(), ['plugin:alpha'], { plugins: [plugin] }),
     );
 
-    expect(discovered.map((resolver) => resolver.id)).not.toContain('alpha');
-    expect(listed.map((resolver) => resolver.id)).toEqual(['alpha']);
+    expect(discovered.map((resolver) => resolver.id)).not.toContain(
+      'plugin:alpha',
+    );
+    expect(listed.map((resolver) => resolver.id)).toEqual(['plugin:alpha']);
   });
 
   it('rejects a plugin token when the plugin was not discovered', async () => {
@@ -287,10 +275,10 @@ describe('buildResolverList', () => {
     );
 
     expect(result.map((resolver) => resolver.id)).toEqual([
-      'jina',
-      'raw',
-      'direct',
-      'md-suffix',
+      'default:jina',
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
     ]);
   });
 
@@ -301,9 +289,10 @@ describe('buildResolverList', () => {
       }),
     );
 
-    expect(
-      result.map((resolver) => `${resolver.isDefault}:${resolver.id}`),
-    ).toEqual(['false:jina', 'true:jina']);
+    expect(result.map((resolver) => resolver.id)).toEqual([
+      'plugin:jina',
+      'default:jina',
+    ]);
   });
 
   it('passes plain plugin config to the manifest resolver', async () => {
@@ -320,7 +309,9 @@ describe('buildResolverList', () => {
     const resolvers = await Effect.runPromise(
       build(config, ['plugin:alpha'], { defaults: [], plugins: [plugin] }),
     );
-    const outcome = await Effect.runPromise(onlyResolver(resolvers).run(url));
+    const outcome = await Effect.runPromise(
+      withUnusedHttpClient(onlyResolver(resolvers).run(url)),
+    );
 
     expect(outcome._tag).toBe('success');
     expect(receivedConfig).toEqual({ mode: 'full' });
@@ -370,7 +361,7 @@ describe('buildResolverList', () => {
     };
 
     const resolver = toPluginResolver(secrets, plugin, undefined);
-    await Effect.runPromise(resolver.run(url));
+    await Effect.runPromise(withUnusedHttpClient(resolver.run(url)));
 
     expect(receivedConfig).toEqual({});
   });
@@ -388,7 +379,7 @@ describe('buildResolverList', () => {
       plugin,
       { apiKey: 'secret:alpha.apiKey', mode: 'full' },
     );
-    await Effect.runPromise(resolver.run(url));
+    await Effect.runPromise(withUnusedHttpClient(resolver.run(url)));
 
     expect(receivedConfig).toEqual({ apiKey: 'real-key', mode: 'full' });
   });
@@ -404,7 +395,7 @@ describe('buildResolverList', () => {
     const resolver = toPluginResolver(makeSecretsStub(), plugin, {
       apiKey: 'secret:alpha.apiKey',
     });
-    const error = await runFail(resolver.run(url));
+    const error = await runFail(withUnusedHttpClient(resolver.run(url)));
 
     expect(error._tag).toBe('ConfigError');
     expect(invoked).toBe(false);
@@ -422,7 +413,11 @@ describe('buildResolverList', () => {
       ),
     );
 
-    const error = await runFail(runResolvers(url, resolvers));
+    const alpha = resolvers[0];
+    if (alpha === undefined) {
+      throw new Error('expected the plugin resolver');
+    }
+    const error = await runFail(withUnusedHttpClient(alpha.run(url)));
 
     expect(error._tag).toBe('ConfigError');
   });
@@ -435,7 +430,9 @@ describe('plugin resolve results', () => {
     const plugin = makePlugin('alpha');
     plugin.manifest.resolve = () =>
       result as ReturnType<DiscoveredPlugin['manifest']['resolve']>;
-    return toPluginResolver(makeSecretsStub(), plugin, undefined).run(url);
+    return withUnusedHttpClient(
+      toPluginResolver(makeSecretsStub(), plugin, undefined).run(url),
+    );
   };
 
   it('treats null and undefined as a decline', async () => {
@@ -473,24 +470,16 @@ describe('plugin resolve results', () => {
     expect(describeCause(error.cause)).toContain('{ markdown: string }');
   });
 
-  it('records a malformed result and lets the chain continue', async () => {
+  it('reports a malformed result as a ResolverError, which the core engine records', async () => {
     const plugin = makePlugin('alpha');
     plugin.manifest.resolve = () =>
       'oops' as unknown as ReturnType<DiscoveredPlugin['manifest']['resolve']>;
-    const fallback: Resolver = {
-      id: 'fallback',
-      isDefault: false,
-      match: null,
-      run: () => Effect.succeed(new ResolveSuccess({ markdown: '# next' })),
-    };
-
-    const result = await Effect.runPromise(
-      runResolvers(url, [
-        toPluginResolver(makeSecretsStub(), plugin, undefined),
-        fallback,
-      ]),
+    const error = await runFail(
+      withUnusedHttpClient(
+        toPluginResolver(makeSecretsStub(), plugin, undefined).run(url),
+      ),
     );
 
-    expect(result.source).toBe('plugin:fallback');
+    expect(error._tag).toBe('ResolverError');
   });
 });

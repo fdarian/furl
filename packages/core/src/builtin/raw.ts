@@ -1,21 +1,17 @@
 import { Effect, Option } from 'effect';
 
-import { ResolverError } from '../../errors.ts';
-import type { Resolver } from '../resolver.ts';
+import { ResolverError } from '../errors.ts';
 import {
   ResolveDecline,
   type ResolveOutcome,
+  type Resolver,
   ResolveSuccess,
-} from '../types.ts';
-import {
-  fileExtensionPattern,
-  type HttpClientService,
-  tryRawFetch,
-} from './shared.ts';
+} from '../resolver.ts';
 
-export const rawResolver = (client: HttpClientService): Resolver => ({
+import { fileExtensionPattern, tryRawFetch } from './shared.ts';
+
+export const rawResolver: Resolver = {
   id: 'raw',
-  isDefault: true,
   match: null,
   run: (url) =>
     Effect.gen(function* () {
@@ -23,7 +19,7 @@ export const rawResolver = (client: HttpClientService): Resolver => ({
         return new ResolveDecline() satisfies ResolveOutcome;
       }
 
-      const body = yield* tryRawFetch(client, url.toString()).pipe(
+      const body = yield* tryRawFetch(url.toString()).pipe(
         Effect.mapError(
           (cause) => new ResolverError({ id: 'raw', cause: cause }),
         ),
@@ -35,4 +31,4 @@ export const rawResolver = (client: HttpClientService): Resolver => ({
           }) satisfies ResolveOutcome)
         : (new ResolveDecline() satisfies ResolveOutcome);
     }),
-});
+};

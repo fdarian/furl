@@ -2,9 +2,9 @@ import { Context, Effect, FileSystem, Layer, Schema } from 'effect';
 
 import { getConfigDirectoryPath } from '../config-service.ts';
 import { PluginLoadError } from '../errors.ts';
+import type { PluginManifest } from '../plugins.ts';
 
 import { PluginLoader } from './loader.ts';
-import type { PluginManifest } from './types.ts';
 
 export type DiscoveredPlugin = {
   name: string;

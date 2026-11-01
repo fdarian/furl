@@ -1,37 +1,38 @@
-import { type Context, Effect } from 'effect';
-import { type HttpClient, HttpClientRequest } from 'effect/http';
+import { Effect, Option } from 'effect';
+import { HttpClient, HttpClientRequest } from 'effect/http';
 
-import { FetchError, ProviderError } from '../errors.ts';
-import type { SecretsService } from '../secrets-service.ts';
+import { FetchError, ProviderError, ResolverError } from '../errors.ts';
+import {
+  type ResolveOutcome,
+  type Resolver,
+  ResolveSuccess,
+} from '../resolver.ts';
 
-import { getOptionalProviderKey } from './provider-key.ts';
+import { type ApiKeyOptions, getOptionalProviderKey } from './api-key.ts';
 
 const readerPrefix = 'https://r.jina.ai/';
 
-export const fetchWithJina = (
-  client: Context.Service.Shape<typeof HttpClient.HttpClient>,
-  secrets: SecretsService,
-  url: string,
-) =>
+const fetchWithJina = (options: ApiKeyOptions, url: string) =>
   Effect.gen(function* () {
     const optionalKey = yield* getOptionalProviderKey(
-      secrets,
       'jina',
       'JINA_API_KEY',
+      options.apiKey,
     );
-    let request = HttpClientRequest.get(`${readerPrefix}${url}`).pipe(
+    const baseRequest = HttpClientRequest.get(`${readerPrefix}${url}`).pipe(
       HttpClientRequest.setHeader('X-Return-Format', 'markdown'),
       HttpClientRequest.setHeader('Accept', 'text/markdown'),
     );
+    const request = Option.isSome(optionalKey)
+      ? baseRequest.pipe(
+          HttpClientRequest.setHeader(
+            'Authorization',
+            `Bearer ${optionalKey.value}`,
+          ),
+        )
+      : baseRequest;
 
-    if (optionalKey !== null) {
-      request = request.pipe(
-        HttpClientRequest.setHeader('Authorization', `Bearer ${optionalKey}`),
-      );
-    }
-
-    const response = yield* request.pipe(
-      client.execute,
+    const response = yield* HttpClient.execute(request).pipe(
       Effect.mapError(
         (cause) =>
           new FetchError({ url: url, status: undefined, cause: cause }),
@@ -39,12 +40,10 @@ export const fetchWithJina = (
     );
 
     if (response.status < 200 || response.status >= 300) {
-      return yield* Effect.fail(
-        new ProviderError({
-          provider: 'jina',
-          cause: new Error(`Unexpected status ${response.status}`),
-        }),
-      );
+      return yield* new ProviderError({
+        provider: 'jina',
+        cause: new Error(`Unexpected status ${response.status}`),
+      });
     }
 
     return yield* response.text.pipe(
@@ -54,3 +53,18 @@ export const fetchWithJina = (
       ),
     );
   });
+
+export const jinaResolver = (options: ApiKeyOptions = {}): Resolver => ({
+  id: 'jina',
+  match: null,
+  run: (url) =>
+    fetchWithJina(options, url.toString()).pipe(
+      Effect.map(
+        (markdown): ResolveOutcome =>
+          new ResolveSuccess({ markdown: markdown }),
+      ),
+      Effect.mapError(
+        (cause) => new ResolverError({ id: 'jina', cause: cause }),
+      ),
+    ),
+});

@@ -8,20 +8,20 @@ import {
   Option,
   Schema,
 } from 'effect';
-
+import type { ConfigError } from 'furl-lib';
+import { describeCause, redactUrlUserInfo } from 'furl-lib';
 import type { FurlConfig, FurlConfigServiceShape } from '../config-service.ts';
 import {
   FurlConfigService,
   getConfigDirectoryPath,
   removePluginConfig,
 } from '../config-service.ts';
-import type { ConfigError, KeychainError } from '../errors.ts';
+
+import type { KeychainError } from '../errors.ts';
 import {
-  describeCause,
   PluginInstallError,
   PluginNotFoundError,
   PluginUninstallError,
-  redactUrlUserInfo,
 } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 import { Secrets } from '../secrets-service.ts';

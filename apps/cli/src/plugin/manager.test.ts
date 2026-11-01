@@ -4,9 +4,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { BunFileSystem } from '@effect/platform-bun';
 import { Effect, FileSystem, Option } from 'effect';
+import { ConfigError } from 'furl-lib';
 
 import type { FurlConfig, FurlConfigServiceShape } from '../config-service.ts';
-import { ConfigError, KeychainError } from '../errors.ts';
+import { KeychainError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 import type { PluginLoader } from './loader.ts';
 import type { RunGit } from './manager.ts';

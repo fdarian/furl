@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from 'effect';
 
 import { PluginLoadError } from '../errors.ts';
-import * as pluginAuthoring from './index.ts';
+import * as pluginAuthoring from '../plugins.ts';
 
 const registerVirtualPluginsModule = Effect.promise(async () => {
   await Bun.plugin({

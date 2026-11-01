@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
+import { HttpClient } from 'effect/http';
+import { matchesUrl, runResolvers } from './engine.ts';
+import { AllResolversFailed, ConfigError, ResolverError } from './errors.ts';
+import { ResolveDecline, type Resolver, ResolveSuccess } from './resolver.ts';
+import { makeHttpClientStub, makeResolverStub } from './test-doubles.ts';
 
-import { AllResolversFailed, ConfigError, ResolverError } from '../errors.ts';
-
-import { runResolvers } from './engine.ts';
-import { makeResolverStub } from './test-doubles.ts';
-import { ResolveDecline, ResolveSuccess } from './types.ts';
+const runWithClient = (url: URL, resolvers: readonly Resolver[]) =>
+  runResolvers(url, resolvers).pipe(
+    Effect.provideService(
+      HttpClient.HttpClient,
+      makeHttpClientStub(() => new Response('')),
+    ),
+  );
 
 const runFail = <A, E>(effect: Effect.Effect<A, E>): Promise<E> =>
   Effect.runPromise(Effect.flip(effect));
@@ -32,9 +39,9 @@ describe('runResolvers', () => {
       run: () => Effect.succeed(new ResolveSuccess({ markdown: '# ok' })),
     });
 
-    const result = await Effect.runPromise(runResolvers(url, [first, second]));
+    const result = await Effect.runPromise(runWithClient(url, [first, second]));
 
-    expect(result).toEqual({ markdown: '# ok', source: 'plugin:second' });
+    expect(result).toEqual({ markdown: '# ok', source: 'second' });
   });
 
   it('short-circuits on the first success without running later resolvers', async () => {
@@ -51,9 +58,9 @@ describe('runResolvers', () => {
       },
     });
 
-    const result = await Effect.runPromise(runResolvers(url, [first, second]));
+    const result = await Effect.runPromise(runWithClient(url, [first, second]));
 
-    expect(result).toEqual({ markdown: '# first', source: 'plugin:first' });
+    expect(result).toEqual({ markdown: '# first', source: 'first' });
     expect(laterRan).toBe(false);
   });
 
@@ -72,7 +79,7 @@ describe('runResolvers', () => {
       },
     });
 
-    const error = await runFail(runResolvers(url, [first, second]));
+    const error = await runFail(runWithClient(url, [first, second]));
 
     expect(error).toBe(configError);
     expect(laterRan).toBe(false);
@@ -81,7 +88,6 @@ describe('runResolvers', () => {
   it('records a ResolverError and continues the chain', async () => {
     const first = makeResolverStub({
       id: 'jina',
-      isDefault: true,
       run: () =>
         Effect.fail(
           new ResolverError({ id: 'jina', cause: new Error('rate limited') }),
@@ -89,19 +95,17 @@ describe('runResolvers', () => {
     });
     const second = makeResolverStub({
       id: 'exa',
-      isDefault: true,
       run: () => Effect.succeed(new ResolveSuccess({ markdown: '# via exa' })),
     });
 
-    const result = await Effect.runPromise(runResolvers(url, [first, second]));
+    const result = await Effect.runPromise(runWithClient(url, [first, second]));
 
-    expect(result).toEqual({ markdown: '# via exa', source: 'default:exa' });
+    expect(result).toEqual({ markdown: '# via exa', source: 'exa' });
   });
 
   it('aggregates resolver causes when nothing succeeds', async () => {
     const first = makeResolverStub({
       id: 'jina',
-      isDefault: true,
       run: () =>
         Effect.fail(
           new ResolverError({ id: 'jina', cause: new Error('no key') }),
@@ -109,7 +113,6 @@ describe('runResolvers', () => {
     });
     const second = makeResolverStub({
       id: 'exa',
-      isDefault: true,
       run: () =>
         Effect.fail(
           new ResolverError({ id: 'exa', cause: new Error('rate limited') }),
@@ -121,12 +124,12 @@ describe('runResolvers', () => {
     });
 
     const error = asAllResolversFailed(
-      await runFail(runResolvers(url, [first, second, third])),
+      await runFail(runWithClient(url, [first, second, third])),
     );
 
     expect(error.failures.map((failure) => failure.id)).toEqual([
-      'default:jina',
-      'default:exa',
+      'jina',
+      'exa',
     ]);
     expect(String(error.failures[0]?.cause)).toContain('no key');
     expect(String(error.failures[1]?.cause)).toContain('rate limited');
@@ -140,7 +143,7 @@ describe('runResolvers', () => {
     });
 
     const error = asAllResolversFailed(
-      await runFail(runResolvers(credentialedUrl, [resolver])),
+      await runFail(runWithClient(credentialedUrl, [resolver])),
     );
 
     expect(error.url).toBe('https://[redacted]@example.com/page');
@@ -155,36 +158,69 @@ describe('runResolvers', () => {
     });
 
     const error = asAllResolversFailed(
-      await runFail(runResolvers(url, [resolver])),
+      await runFail(runWithClient(url, [resolver])),
     );
 
     expect(error.url).toBe('https://example.com/page');
   });
 
-  it('labels a plugin failure and a built-in of the same name by order token', async () => {
-    const plugin = makeResolverStub({
-      id: 'jina',
-      run: () =>
-        Effect.fail(
-          new ResolverError({ id: 'jina', cause: new Error('plugin broke') }),
-        ),
+  it('skips a resolver whose match fails without running it', async () => {
+    let skippedRan = false;
+    const skipped = makeResolverStub({
+      id: 'other-host',
+      match: { hostname: 'other.example' },
+      run: () => {
+        skippedRan = true;
+        return Effect.succeed(new ResolveSuccess({ markdown: '# skipped' }));
+      },
     });
-    const builtin = makeResolverStub({
-      id: 'jina',
-      isDefault: true,
-      run: () =>
-        Effect.fail(
-          new ResolverError({ id: 'jina', cause: new Error('builtin broke') }),
-        ),
+    const matching = makeResolverStub({
+      id: 'this-host',
+      match: { hostname: 'example.com', path: '/*' },
+      run: () => Effect.succeed(new ResolveSuccess({ markdown: '# ok' })),
+    });
+
+    const result = await Effect.runPromise(
+      runWithClient(url, [skipped, matching]),
+    );
+
+    expect(result).toEqual({ markdown: '# ok', source: 'this-host' });
+    expect(skippedRan).toBe(false);
+  });
+
+  it('does not record a skipped resolver as a failure', async () => {
+    const skipped = makeResolverStub({
+      id: 'other-host',
+      match: { hostname: 'other.example' },
     });
 
     const error = asAllResolversFailed(
-      await runFail(runResolvers(url, [plugin, builtin])),
+      await runFail(runWithClient(url, [skipped])),
     );
 
-    expect(error.failures.map((failure) => failure.id)).toEqual([
-      'plugin:jina',
-      'default:jina',
-    ]);
+    expect(error.failures).toEqual([]);
+  });
+
+  it('matches path patterns segment by segment', () => {
+    const match = { hostname: 'example.com', path: '/docs/*' };
+
+    expect(matchesUrl(match, new URL('https://example.com/docs/intro'))).toBe(
+      true,
+    );
+    expect(matchesUrl(match, new URL('https://example.com/docs'))).toBe(false);
+    expect(matchesUrl(match, new URL('https://example.com/docs/a/b'))).toBe(
+      false,
+    );
+    expect(matchesUrl(null, new URL('https://anything.example/'))).toBe(true);
+  });
+
+  it('matches a host with one-segment wildcards', () => {
+    const tweet = new URL('https://x.com/someone/status/123');
+
+    expect(matchesUrl({ hostname: 'x.com', path: '/*/status/*' }, tweet)).toBe(
+      true,
+    );
+    expect(matchesUrl({ hostname: 'x.com' }, tweet)).toBe(true);
+    expect(matchesUrl({ hostname: 'other.com' }, tweet)).toBe(false);
   });
 });

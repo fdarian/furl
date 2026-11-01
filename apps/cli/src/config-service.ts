@@ -1,16 +1,12 @@
 import { Context, Effect, FileSystem, Layer, Option, Schema } from 'effect';
+import type { ProviderName } from 'furl-lib';
+import { ConfigError, providerNames, providerSchema } from 'furl-lib';
 
-import { ConfigError } from './errors.ts';
 import {
   insertProviderToken,
   pluginOrderToken,
   providerOrderToken,
 } from './plugin/order.ts';
-import {
-  type ProviderName,
-  providerNames,
-  providerSchema,
-} from './provider-name.ts';
 
 const pluginConfigValueSchema = Schema.Record(Schema.String, Schema.Unknown);
 

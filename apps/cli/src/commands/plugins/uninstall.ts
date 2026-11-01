@@ -1,6 +1,6 @@
 import { Console, Effect } from 'effect';
 import { Argument, Command } from 'effect/cli';
-import { PluginManager } from 'furl-lib';
+import { PluginManager } from '../../plugin/manager';
 
 const uninstallNameArgument = Argument.String('name').pipe(
   Argument.withDescription("The installed plugin's name (its folder name)"),

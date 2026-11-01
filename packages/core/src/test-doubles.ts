@@ -1,32 +1,15 @@
 import { Effect } from 'effect';
 import { HttpClient, HttpClientError, HttpClientResponse } from 'effect/http';
 
-import type { Resolver } from './resolver.ts';
-import { ResolveDecline, type ResolveOutcome } from './types.ts';
-
-export const makeSecretsStub = (
-  initial: Readonly<Record<string, string>> = {},
-) => {
-  const store = new Map(Object.entries(initial));
-
-  return {
-    get: (name: string) =>
-      Effect.sync(() => {
-        const value = store.get(name);
-        return value === undefined ? null : value;
-      }),
-    set: (name: string, value: string) =>
-      Effect.sync(() => {
-        store.set(name, value);
-      }),
-    delete: (name: string) => Effect.sync(() => store.delete(name)),
-  };
-};
+import {
+  ResolveDecline,
+  type ResolveOutcome,
+  type Resolver,
+} from './resolver.ts';
 
 export const makeResolverStub = (
   overrides: Partial<Resolver> & { id: string },
 ): Resolver => ({
-  isDefault: false,
   match: null,
   run: () => Effect.succeed<ResolveOutcome>(new ResolveDecline()),
   ...overrides,

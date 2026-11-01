@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Effect } from 'effect';
 
-import { definePlugin } from './define-plugin.ts';
+import { definePlugin } from '../plugins.ts';
 import { PluginLoader } from './loader.ts';
 
 describe('PluginLoader virtual furl-cli/plugins module', () => {

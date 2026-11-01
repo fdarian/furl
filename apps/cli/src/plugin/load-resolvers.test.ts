@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect } from 'effect';
 
-import type { FurlConfigServiceShape } from './config-service.ts';
-import { fetchMarkdown } from './fetch-markdown.ts';
-import type { PluginDiscovery } from './plugin/discovery.ts';
-import { makeHttpClientStub, makeSecretsStub } from './plugin/test-doubles.ts';
+import type { FurlConfigServiceShape } from '../config-service.ts';
+import type { PluginDiscovery } from './discovery.ts';
+import { loadResolvers } from './load-resolvers.ts';
+import { makeSecretsStub } from './test-doubles.ts';
 
 const makeConfig = (order: readonly string[]): FurlConfigServiceShape => ({
   read: Effect.succeed({ order: order }),
@@ -22,22 +22,17 @@ const makeDiscovery = (onDiscover: (names: readonly string[]) => void) => ({
   installedNames: Effect.die('unused'),
 });
 
-const run = (
-  order: readonly string[],
-  options: { resolvers?: readonly string[] } = {},
-) => {
+const run = (order: readonly string[], override?: readonly string[]) => {
   let discoveries = 0;
   const discoveredNames: string[][] = [];
-  const effect = fetchMarkdown(
-    makeHttpClientStub(() => new Response('# hi', { status: 200 })),
+  const effect = loadResolvers(
     makeConfig(order),
     makeSecretsStub(),
     makeDiscovery((names) => {
       discoveries += 1;
       discoveredNames.push([...names]);
     }) as PluginDiscovery['Service'],
-    'https://example.com/file.md',
-    options,
+    override,
   );
 
   return {
@@ -47,13 +42,17 @@ const run = (
   };
 };
 
-describe('fetchMarkdown', () => {
+describe('loadResolvers', () => {
   it('does not run plugin discovery when no plugin token is listed', async () => {
     const scenario = run(['default:*']);
 
-    const result = await Effect.runPromise(scenario.effect);
+    const resolvers = await Effect.runPromise(scenario.effect);
 
-    expect(result).toEqual({ markdown: '# hi', source: 'default:raw' });
+    expect(resolvers.map((resolver) => resolver.id)).toEqual([
+      'default:raw',
+      'default:direct',
+      'default:md-suffix',
+    ]);
     expect(scenario.discoveries()).toBe(0);
   });
 
@@ -89,8 +88,17 @@ describe('fetchMarkdown', () => {
     expect(scenario.discoveries()).toBe(0);
   });
 
+  it('prefers the override over the configured order', async () => {
+    const scenario = run(['plugin:alpha'], ['default:raw']);
+
+    const resolvers = await Effect.runPromise(scenario.effect);
+
+    expect(resolvers.map((resolver) => resolver.id)).toEqual(['default:raw']);
+    expect(scenario.discoveries()).toBe(0);
+  });
+
   it('rejects an empty --resolvers override', async () => {
-    const scenario = run(['default:*'], { resolvers: [] });
+    const scenario = run(['default:*'], []);
 
     const error = await Effect.runPromise(Effect.flip(scenario.effect));
 

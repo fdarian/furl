@@ -1,6 +1,7 @@
 import { Console, Effect, Redacted } from 'effect';
 import { Argument, Command, Prompt } from 'effect/cli';
-import { Secrets, setGenericSecret } from 'furl-lib';
+import { setGenericSecret } from '../../plugin/resolve-config';
+import { Secrets } from '../../secrets-service';
 
 const secretNameArgument = Argument.String('name').pipe(
   Argument.withDescription(

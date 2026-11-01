@@ -1,7 +1,8 @@
 import { Effect } from 'effect';
+import { ConfigError } from 'furl-lib';
 
 import type { KeychainError } from '../errors.ts';
-import { ConfigError, InvalidSecretError } from '../errors.ts';
+import { InvalidSecretError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 
 export const secretReferencePrefix = 'secret:';

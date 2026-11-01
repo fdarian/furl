@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { Effect, Option } from 'effect';
-import type { ConfigField } from 'furl-lib';
+import type { ConfigField } from '../../plugins';
 
 import {
   enumChoices,

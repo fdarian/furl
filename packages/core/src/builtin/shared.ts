@@ -1,28 +1,7 @@
-import { type Context, Effect, Option } from 'effect';
-import { type HttpClient, HttpClientRequest } from 'effect/http';
+import { Effect, Option } from 'effect';
+import { HttpClient, HttpClientRequest } from 'effect/http';
 
-import { FetchError } from '../../errors.ts';
-
-export type HttpClientService = Context.Service.Shape<
-  typeof HttpClient.HttpClient
->;
-
-export const defaultResolverNames = [
-  'raw',
-  'direct',
-  'md-suffix',
-  'jina',
-  'firecrawl',
-  'exa',
-] as const;
-
-export type DefaultResolverName = (typeof defaultResolverNames)[number];
-
-export const defaultWildcardResolverNames = [
-  'raw',
-  'direct',
-  'md-suffix',
-] as const;
+import { FetchError } from '../errors.ts';
 
 export const fileExtensionPattern = /\.[a-z0-9]+$/i;
 
@@ -52,12 +31,11 @@ const isSuccessStatus = (status: number): boolean =>
 
 /** Fetches the body as-is. Declines (`none`) when the server answers with HTML. */
 export const tryRawFetch = (
-  client: HttpClientService,
   url: string,
-): Effect.Effect<Option.Option<string>, FetchError> =>
+): Effect.Effect<Option.Option<string>, FetchError, HttpClient.HttpClient> =>
   Effect.gen(function* () {
     const response = yield* HttpClientRequest.get(url).pipe(
-      client.execute,
+      HttpClient.execute,
       Effect.mapError(
         (cause) =>
           new FetchError({ url: url, status: undefined, cause: cause }),
@@ -90,13 +68,12 @@ export const tryRawFetch = (
  * transport and body-read failures propagate as `FetchError`.
  */
 export const tryDirectMarkdownFetch = (
-  client: HttpClientService,
   url: string,
-): Effect.Effect<Option.Option<string>, FetchError> =>
+): Effect.Effect<Option.Option<string>, FetchError, HttpClient.HttpClient> =>
   Effect.gen(function* () {
     const response = yield* HttpClientRequest.get(url).pipe(
       HttpClientRequest.setHeader('Accept', 'text/markdown'),
-      client.execute,
+      HttpClient.execute,
       Effect.mapError(
         (cause) =>
           new FetchError({ url: url, status: undefined, cause: cause }),

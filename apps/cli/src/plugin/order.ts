@@ -1,26 +1,34 @@
 import { Effect } from 'effect';
+import type { ProviderName, Resolver } from 'furl-lib';
+import {
+  ConfigError,
+  providerNames,
+  ResolveDecline,
+  type ResolveOutcome,
+  ResolverError,
+  ResolveSuccess,
+} from 'furl-lib';
 
 import type {
   FurlConfigServiceShape,
   PluginConfigValue,
 } from '../config-service.ts';
-import { ConfigError, ResolverError } from '../errors.ts';
-import { type ProviderName, providerNames } from '../provider-name.ts';
 import type { SecretsService } from '../secrets-service.ts';
-import {
-  type DefaultResolverName,
-  defaultResolverNames,
-  defaultWildcardResolverNames,
-} from './default/shared.ts';
 import type { DiscoveredPlugin } from './discovery.ts';
 import { resolvePluginConfig } from './resolve-config.ts';
-import { type Resolver, resolverIdentity } from './resolver.ts';
-import {
-  type MatchPattern,
-  ResolveDecline,
-  type ResolveOutcome,
-  ResolveSuccess,
-} from './types.ts';
+
+const defaultResolverNames = [
+  'raw',
+  'direct',
+  'md-suffix',
+  'jina',
+  'firecrawl',
+  'exa',
+] as const;
+
+type DefaultResolverName = (typeof defaultResolverNames)[number];
+
+const defaultWildcardResolverNames = ['raw', 'direct', 'md-suffix'] as const;
 
 export type OrderToken =
   | { _tag: 'default-wildcard' }
@@ -34,9 +42,12 @@ const defaultResolverNameSet: ReadonlySet<string> = new Set(
 const defaultTokenPrefix = 'default:';
 const pluginTokenPrefix = 'plugin:';
 
+export const defaultOrderToken = (name: DefaultResolverName): string =>
+  `${defaultTokenPrefix}${name}`;
+
 const freeProbeOrderTokens: readonly string[] = [
   `${defaultTokenPrefix}*`,
-  ...defaultWildcardResolverNames.map((name) => `${defaultTokenPrefix}${name}`),
+  ...defaultWildcardResolverNames.map(defaultOrderToken),
 ];
 
 export const providerOrderToken = (provider: ProviderName): string =>
@@ -158,40 +169,6 @@ export const hasPluginToken = (tokens: readonly OrderToken[]): boolean =>
 export const pluginNamesInOrder = (tokens: readonly OrderToken[]): string[] =>
   tokens.flatMap((token) => (token._tag === 'plugin' ? [token.name] : []));
 
-const matchPathPattern = (pattern: string, pathname: string): boolean => {
-  const patternSegments = pattern
-    .split('/')
-    .filter((segment) => segment.length > 0);
-  const pathSegments = pathname
-    .split('/')
-    .filter((segment) => segment.length > 0);
-
-  if (patternSegments.length !== pathSegments.length) {
-    return false;
-  }
-
-  return patternSegments.every(
-    (patternSegment, index) =>
-      patternSegment === '*' || patternSegment === pathSegments[index],
-  );
-};
-
-export const matchesUrl = (match: MatchPattern | null, url: URL): boolean => {
-  if (match === null) {
-    return true;
-  }
-
-  if (match.hostname !== url.hostname) {
-    return false;
-  }
-
-  if (match.path === undefined) {
-    return true;
-  }
-
-  return matchPathPattern(match.path, url.pathname);
-};
-
 const toPluginOutcome = (
   pluginName: string,
   result: unknown,
@@ -223,8 +200,7 @@ export const toPluginResolver = (
   plugin: DiscoveredPlugin,
   args: PluginConfigValue | undefined,
 ): Resolver => ({
-  id: plugin.manifest.name,
-  isDefault: false,
+  id: pluginOrderToken(plugin.manifest.name),
   match: plugin.manifest.match,
   run: (url) =>
     Effect.gen(function* () {
@@ -254,10 +230,13 @@ export const toPluginResolver = (
 const orderConfigError = (message: string): ConfigError =>
   new ConfigError({ cause: new Error(message) });
 
+/**
+ * Turns parsed order tokens into resolvers, one per distinct id. Built-in
+ * resolvers must carry their `default:<name>` token as id.
+ */
 export const buildResolverList = (
   configService: FurlConfigServiceShape,
   secrets: SecretsService,
-  url: URL,
   defaultResolvers: readonly Resolver[],
   discoveredPlugins: readonly DiscoveredPlugin[],
   parsedTokens: readonly OrderToken[],
@@ -278,17 +257,17 @@ export const buildResolverList = (
       }
     }
 
-    const defaultByName = new Map<string, Resolver>();
+    const defaultById = new Map<string, Resolver>();
     for (const resolver of defaultResolvers) {
-      if (resolver.isDefault && !defaultByName.has(resolver.id)) {
-        defaultByName.set(resolver.id, resolver);
+      if (!defaultById.has(resolver.id)) {
+        defaultById.set(resolver.id, resolver);
       }
     }
 
     const resolverForDefault = (
       name: DefaultResolverName,
-    ): Effect.Effect<Resolver | undefined, ConfigError> => {
-      const resolver = defaultByName.get(name);
+    ): Effect.Effect<Resolver, ConfigError> => {
+      const resolver = defaultById.get(defaultOrderToken(name));
       if (resolver === undefined) {
         return Effect.fail(
           orderConfigError(`Built-in resolver "${name}" is unavailable`),
@@ -318,27 +297,19 @@ export const buildResolverList = (
       }
     }
 
-    const matchingPlugins = new Map<string, Resolver>();
-    for (const entry of pluginResolvers) {
-      if (matchesUrl(entry[1].match, url)) {
-        matchingPlugins.set(entry[0], entry[1]);
-      }
-    }
-
     const result: Resolver[] = [];
     const usedResolvers = new Set<string>();
     const pushResolver = (resolver: Resolver): void => {
-      const identity = resolverIdentity(resolver);
-      if (usedResolvers.has(identity)) {
+      if (usedResolvers.has(resolver.id)) {
         return;
       }
-      usedResolvers.add(identity);
+      usedResolvers.add(resolver.id);
       result.push(resolver);
     };
 
     for (const parsedToken of parsedTokens) {
       if (parsedToken._tag === 'plugin') {
-        const resolver = matchingPlugins.get(parsedToken.name);
+        const resolver = pluginResolvers.get(parsedToken.name);
         if (resolver !== undefined) {
           pushResolver(resolver);
         }
@@ -346,18 +317,12 @@ export const buildResolverList = (
       }
 
       if (parsedToken._tag === 'default') {
-        const resolver = yield* resolverForDefault(parsedToken.name);
-        if (resolver !== undefined && matchesUrl(resolver.match, url)) {
-          pushResolver(resolver);
-        }
+        pushResolver(yield* resolverForDefault(parsedToken.name));
         continue;
       }
 
       for (const name of defaultWildcardResolverNames) {
-        const resolver = yield* resolverForDefault(name);
-        if (resolver !== undefined && matchesUrl(resolver.match, url)) {
-          pushResolver(resolver);
-        }
+        pushResolver(yield* resolverForDefault(name));
       }
     }
 
