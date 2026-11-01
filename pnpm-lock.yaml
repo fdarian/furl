@@ -249,7 +249,7 @@ importers:
         version: 1.0.4
 
   packages/core:
-    dependencies:
+    devDependencies:
       '@effect/platform-bun':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)
@@ -259,7 +259,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
-    devDependencies:
       tsrs:
         specifier: 'catalog:'
         version: 0.18.0-ts7.1.0-dev.20260929

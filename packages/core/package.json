@@ -1,22 +1,43 @@
 {
   "name": "@furl/core",
-  "private": true,
+  "version": "0.0.0",
+  "description": "Fetch any URL as markdown with a pluggable resolver chain. Bun-only, ships TypeScript source.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fdarian/furl.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./plugins": "./src/plugin/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/test-doubles.ts",
+    "README.md"
+  ],
+  "engines": {
+    "bun": ">=1.2.21"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "check:tsc": "tsrs --noEmit",
     "check:lint": "biome check .",
     "test": "bun test"
   },
-  "dependencies": {
-    "@repo/config": "workspace:*",
-    "@effect/platform-bun": "catalog:",
+  "peerDependencies": {
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@effect/platform-bun": "catalog:",
+    "@repo/config": "workspace:*",
+    "effect": "catalog:",
     "tsrs": "catalog:"
   }
 }
