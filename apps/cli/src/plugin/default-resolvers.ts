@@ -2,11 +2,12 @@ import { Config, Effect, Option } from 'effect';
 import type { ProviderName, Resolver } from 'furl-lib';
 import { ProviderError, Resolvers } from 'furl-lib';
 
+import { MissingProviderKeyError } from '../errors.ts';
 import type { SecretsService } from '../secrets-service.ts';
 import { defaultOrderToken } from './order.ts';
 
 /** Env var first, then the keychain account named after the provider. */
-const providerApiKey = (
+const lookupProviderApiKey = (
   secrets: SecretsService,
   provider: ProviderName,
   environmentVariableName: string,
@@ -26,6 +27,26 @@ const providerApiKey = (
     return Option.fromNullishOr(yield* secrets.get(provider));
   });
 
+/** Same lookup, but a missing key fails with the CLI's hint to run `furl providers`. */
+const requiredProviderApiKey = (
+  secrets: SecretsService,
+  provider: ProviderName,
+  environmentVariableName: string,
+) =>
+  Effect.gen(function* () {
+    const key = yield* lookupProviderApiKey(
+      secrets,
+      provider,
+      environmentVariableName,
+    );
+
+    if (Option.isNone(key)) {
+      return yield* new MissingProviderKeyError({ provider: provider });
+    }
+
+    return key;
+  });
+
 /** Built-in resolvers carrying their `default:<name>` order token as id. */
 export const createDefaultResolvers = (secrets: SecretsService): Resolver[] => [
   { ...Resolvers.raw, id: defaultOrderToken('raw') },
@@ -33,17 +54,19 @@ export const createDefaultResolvers = (secrets: SecretsService): Resolver[] => [
   { ...Resolvers.mdSuffix, id: defaultOrderToken('md-suffix') },
   {
     ...Resolvers.jina({
-      apiKey: providerApiKey(secrets, 'jina', 'JINA_API_KEY'),
+      apiKey: lookupProviderApiKey(secrets, 'jina', 'JINA_API_KEY'),
     }),
     id: defaultOrderToken('jina'),
   },
   {
-    ...Resolvers.exa({ apiKey: providerApiKey(secrets, 'exa', 'EXA_API_KEY') }),
+    ...Resolvers.exa({
+      apiKey: requiredProviderApiKey(secrets, 'exa', 'EXA_API_KEY'),
+    }),
     id: defaultOrderToken('exa'),
   },
   {
     ...Resolvers.firecrawl({
-      apiKey: providerApiKey(secrets, 'firecrawl', 'FIRECRAWL_API_KEY'),
+      apiKey: requiredProviderApiKey(secrets, 'firecrawl', 'FIRECRAWL_API_KEY'),
     }),
     id: defaultOrderToken('firecrawl'),
   },

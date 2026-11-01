@@ -4,6 +4,7 @@ import {
   AllResolversFailed,
   describeCause,
   FetchError,
+  NoProviderKey,
   ProviderError,
   redactUrlUserInfo,
 } from './errors.ts';
@@ -50,6 +51,12 @@ describe('error messages', () => {
     });
 
     expect(error.message).toBe('jina request failed: Unexpected status 429');
+  });
+
+  it('describes a NoProviderKey without mentioning the CLI', () => {
+    const error = new NoProviderKey({ provider: 'exa' });
+
+    expect(error.message).toBe('No API key configured for exa.');
   });
 
   it('shows a nested tagged error in AllResolversFailed', () => {

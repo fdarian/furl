@@ -30,7 +30,7 @@ export class NoProviderKey extends Schema.TaggedError<NoProviderKey>(
   provider: Schema.String,
 }) {
   override get message(): string {
-    return `No API key configured for ${this.provider}. Run \`furl providers\`.`;
+    return `No API key configured for ${this.provider}.`;
   }
 }
 

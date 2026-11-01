@@ -12,6 +12,7 @@ export type { FetchOptions, FetchResult, FurlError } from './furl.ts';
 export { Furl } from './furl.ts';
 export type { ProviderName } from './provider-name.ts';
 export { providerNames, providerSchema } from './provider-name.ts';
+export type { ApiKey, ApiKeyOptions } from './providers/api-key.ts';
 export type {
   MatchPattern,
   ResolveOutcome,

@@ -11,6 +11,16 @@ export class KeychainError extends Schema.TaggedError<KeychainError>(
   }
 }
 
+export class MissingProviderKeyError extends Schema.TaggedError<MissingProviderKeyError>(
+  'furl/MissingProviderKeyError',
+)('MissingProviderKeyError', {
+  provider: Schema.String,
+}) {
+  override get message(): string {
+    return `No API key configured for ${this.provider}. Run \`furl providers\`.`;
+  }
+}
+
 export class InvalidSecretError extends Schema.TaggedError<InvalidSecretError>(
   'furl/InvalidSecretError',
 )('InvalidSecretError', {
