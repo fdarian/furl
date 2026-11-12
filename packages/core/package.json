@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Fetch any URL as markdown with a pluggable resolver chain. Runs on Node, Bun and other runtimes.",
   "license": "Apache-2.0",
+  "homepage": "https://furl.fdarian.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fdarian/furl.git",
