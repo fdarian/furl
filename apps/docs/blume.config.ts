@@ -1,10 +1,14 @@
 import { withPreset } from '@fdarian/blume-preset';
 import { defineConfig } from 'blume';
+import { posthog } from 'blume/analytics';
 import { filesystem } from 'blume/sources';
+
+const ph = process.env.POSTHOG_KEY;
 
 export default defineConfig(
   withPreset({
     title: 'furl',
+    ...(ph ? { analytics: [posthog({ key: ph })] } : {}),
     description:
       'A curl replacement for AI agents — fetch any URL as clean markdown.',
     content: {
