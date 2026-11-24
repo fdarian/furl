@@ -28,7 +28,7 @@ const fetchWithFirecrawl = (options: ApiKeyOptions, url: string) =>
       options.apiKey,
     );
     const request = yield* HttpClientRequest.post(
-      'https://api.firecrawl.dev/v1/scrape',
+      'https://api.firecrawl.dev/v2/scrape',
     ).pipe(
       HttpClientRequest.setHeader('Authorization', `Bearer ${key}`),
       HttpClientRequest.bodyJson({ url: url, formats: ['markdown'] }),
