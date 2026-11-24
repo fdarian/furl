@@ -1,5 +1,11 @@
 # furl-core
 
+## 0.1.1
+
+### Patch Changes
+
+- 4407d06: Use Firecrawl's v2 scrape API instead of the deprecated v1 endpoint.
+
 ## 0.1.0
 
 ### Minor Changes
